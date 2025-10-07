@@ -1,21 +1,12 @@
-package main
+package websocket
 
 import (
 	"log"
 	"net/http"
 	"sync"
-	"time"
 
 	"github.com/gorilla/websocket"
 )
-
-type Message struct {
-	Text      string    `json:"text"`
-	Sender    string    `json:"sender"`
-	Receiver  string    `json:"receiver"`
-	Type      string    `json:"type"`
-	Timestamp time.Time `json:"timestamp"`
-}
 
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
