@@ -7,22 +7,22 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
-type Repository struct {
+type MongoRepository struct {
 	collection *mongo.Collection
 }
 
-func NewRepository(db *mongo.Database) *Repository {
-	return &Repository{
+func NewRepository(db *mongo.Database) *MongoRepository {
+	return &MongoRepository{
 		collection: db.Collection("users"),
 	}
 }
 
-func (r *Repository) Create(ctx context.Context, user *User) error {
+func (r *MongoRepository) Create(ctx context.Context, user *User) error {
 	_, err := r.collection.InsertOne(ctx, user)
 	return err
 }
 
-func (r *Repository) FindByUsername(ctx context.Context, username string) (*User, error) {
+func (r *MongoRepository) FindByUsername(ctx context.Context, username string) (*User, error) {
 	var user User
 	err := r.collection.FindOne(ctx, bson.M{"username": username}).Decode(&user)
 	if err != nil {

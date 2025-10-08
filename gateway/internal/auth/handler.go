@@ -33,7 +33,7 @@ func (h *Handler) RegisterHandler(w http.ResponseWriter, r *http.Request) {
 
 	token, err := h.service.Register(req)
 	switch {
-	case err == UserAlredyExistsErr:
+	case err == ErrUserAlredyExists:
 		http.Error(w, `{"error":"User already exists"}`, http.StatusForbidden)
 	case err != nil:
 		http.Error(w, `{"error":"Internal server error"}`, http.StatusInternalServerError)

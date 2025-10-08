@@ -9,18 +9,18 @@ import (
 )
 
 type Service struct {
-	repo *Repository
+	repo Repository
 }
 
-func NewService(repo *Repository) *Service {
+func NewService(repo Repository) *Service {
 	return &Service{repo: repo}
 }
 
-var UserAlredyExistsErr = errors.New("User Alredy Exists")
+var ErrUserAlredyExists = errors.New("User Alredy Exists")
 
 func (s *Service) Register(req RegisterUserRequest) (string, error) {
 	if user, _ := s.repo.FindByUsername(context.Background(), req.Username); user != nil {
-		return "", UserAlredyExistsErr
+		return "", ErrUserAlredyExists
 	}
 	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
