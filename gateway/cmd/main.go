@@ -7,7 +7,7 @@ import (
 )
 
 func main() {
-	db, err := mongoutil.ConnectMongoDB("mongodb://localhost:27017", "chatdb")
+	db, err := mongoutil.NewMongoClient("mongodb://localhost:27017", "chatdb")
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -22,11 +22,10 @@ func NewServer(addr string, db *mongo.Database, rdb *redis.Client) *Server {
 func (s *Server) Start() error {
 	mux := http.NewServeMux()
 
-	wsHandler := websocket.NewWsHandler(websocket.NewService(s.rdb))
-	mux.Handle("GET /ws", auth.JWTMiddleware(http.HandlerFunc(wsHandler.WsHandler)))
+	wsHandler := websocket.NewWsHandler(websocket.NewService(websocket.NewRedisRepository(s.rdb)))
+	mux.Handle("GET /ws", auth.JWTMiddleware(http.HandlerFunc(wsHandler.HandleConnection)))
 
 	authHandler := auth.NewHandler(auth.NewService(auth.NewRepository(s.db)))
-
 	mux.Handle("POST /auth/login", http.HandlerFunc(authHandler.LoginHandler))
 	mux.Handle("POST /auth/register", http.HandlerFunc(authHandler.RegisterHandler))
 	return http.ListenAndServe(s.addr, mux)

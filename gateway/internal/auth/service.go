@@ -26,10 +26,12 @@ func (s *Service) Register(req RegisterUserRequest) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to hash password: %w", err)
 	}
-	if err := s.repo.Create(context.Background(), &User{Username: req.Username, Password: string(hash)}); err != nil {
+	req.Password = string(hash)
+	userCreated, err := s.repo.Create(context.Background(), &req)
+	if err != nil {
 		return "", err
 	}
-	return createToken(req.Username)
+	return createToken(userCreated.ID)
 }
 
 func (s *Service) Authenticate(req LoginUserRequest) (string, error) {
@@ -37,5 +39,5 @@ func (s *Service) Authenticate(req LoginUserRequest) (string, error) {
 	if err != nil || bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)) != nil {
 		return "", fmt.Errorf("invalid credentials")
 	}
-	return createToken(req.Username)
+	return createToken(user.ID)
 }

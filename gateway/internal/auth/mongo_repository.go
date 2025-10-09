@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
@@ -17,9 +18,28 @@ func NewRepository(db *mongo.Database) *MongoRepository {
 	}
 }
 
-func (r *MongoRepository) Create(ctx context.Context, user *User) error {
-	_, err := r.collection.InsertOne(ctx, user)
-	return err
+func (r *MongoRepository) Create(ctx context.Context, registerUserRequest *RegisterUserRequest) (*User, error) {
+	userMongo := UserMongo{
+		Username: registerUserRequest.Username,
+		Password: registerUserRequest.Password,
+	}
+
+	result, err := r.collection.InsertOne(ctx, userMongo)
+	if err != nil {
+		return nil, err
+	}
+
+	if oid, ok := result.InsertedID.(primitive.ObjectID); ok {
+		userMongo.ID = oid
+	}
+
+	user := &User{
+		ID:       int(userMongo.ID.Timestamp().Unix()),
+		Username: userMongo.Username,
+		Password: userMongo.Password,
+	}
+
+	return user, nil
 }
 
 func (r *MongoRepository) FindByUsername(ctx context.Context, username string) (*User, error) {
