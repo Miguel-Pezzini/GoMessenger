@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	authpb "github.com/Miguel-Pezzini/real_time_chat/auth_service/internal/pb/auth"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -18,26 +19,28 @@ func NewService(repo Repository) *Service {
 
 var ErrUserAlredyExists = errors.New("User Alredy Exists")
 
-func (s *Service) Register(req RegisterUserRequest) (string, error) {
+func (s *Service) Register(req *authpb.RegisterRequest) (*authpb.RegisterResponse, error) {
 	if user, _ := s.repo.FindByUsername(context.Background(), req.Username); user != nil {
-		return "", ErrUserAlredyExists
+		return &authpb.RegisterResponse{}, ErrUserAlredyExists
 	}
 	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
-		return "", fmt.Errorf("failed to hash password: %w", err)
+		return &authpb.RegisterResponse{}, fmt.Errorf("failed to hash password: %w", err)
 	}
 	req.Password = string(hash)
-	userCreated, err := s.repo.Create(context.Background(), &req)
+	userCreated, err := s.repo.Create(context.Background(), req)
 	if err != nil {
-		return "", err
+		return &authpb.RegisterResponse{}, err
 	}
-	return createToken(userCreated.ID)
+	token, err := createToken(userCreated.ID)
+	return &authpb.RegisterResponse{Token: token}, err
 }
 
-func (s *Service) Authenticate(req LoginUserRequest) (string, error) {
+func (s *Service) Authenticate(req *authpb.LoginRequest) (*authpb.LoginResponse, error) {
 	user, err := s.repo.FindByUsername(context.Background(), req.Username)
 	if err != nil || bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)) != nil {
-		return "", fmt.Errorf("invalid credentials")
+		return &authpb.LoginResponse{}, fmt.Errorf("invalid credentials")
 	}
-	return createToken(user.ID)
+	token, err := createToken(user.ID)
+	return &authpb.LoginResponse{Token: token}, err
 }

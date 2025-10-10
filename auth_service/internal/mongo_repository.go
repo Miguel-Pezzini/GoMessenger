@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 
+	authpb "github.com/Miguel-Pezzini/real_time_chat/auth_service/internal/pb/auth"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -12,13 +13,13 @@ type MongoRepository struct {
 	collection *mongo.Collection
 }
 
-func NewRepository(db *mongo.Database) *MongoRepository {
+func NewMongoRepository(db *mongo.Database) *MongoRepository {
 	return &MongoRepository{
 		collection: db.Collection("users"),
 	}
 }
 
-func (r *MongoRepository) Create(ctx context.Context, registerUserRequest *RegisterUserRequest) (*User, error) {
+func (r *MongoRepository) Create(ctx context.Context, registerUserRequest *authpb.RegisterRequest) (*User, error) {
 	userMongo := UserMongo{
 		Username: registerUserRequest.Username,
 		Password: registerUserRequest.Password,

@@ -3,6 +3,8 @@ package auth
 import (
 	"encoding/json"
 	"net/http"
+
+	authpb "github.com/Miguel-Pezzini/real_time_chat/gateway/internal/pb/proto/auth"
 )
 
 type Handler struct {
@@ -29,10 +31,10 @@ type AuthResponse struct {
 
 func (h *Handler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	var req LoginUserRequest
+	var req authpb.LoginRequest
 	_ = json.NewDecoder(r.Body).Decode(&req)
 
-	token, err := h.service.Authenticate(req)
+	token, err := h.service.Authenticate(r.Context(), req)
 	if err != nil {
 		http.Error(w, `{"error":"Invalid credentials"}`, http.StatusUnauthorized)
 		return
@@ -42,10 +44,10 @@ func (h *Handler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) RegisterHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	var req RegisterUserRequest
+	var req authpb.RegisterRequest
 	_ = json.NewDecoder(r.Body).Decode(&req)
 
-	token, err := h.service.Register(req)
+	token, err := h.service.Register(r.Context(), req)
 	switch {
 	case err == ErrUserAlredyExists:
 		http.Error(w, `{"error":"User already exists"}`, http.StatusForbidden)

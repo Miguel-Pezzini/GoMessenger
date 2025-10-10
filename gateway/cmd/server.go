@@ -25,7 +25,13 @@ func (s *Server) Start() error {
 	wsHandler := websocket.NewWsHandler(websocket.NewService(websocket.NewRedisRepository(s.rdb)))
 	mux.Handle("GET /ws", auth.JWTMiddleware(http.HandlerFunc(wsHandler.HandleConnection)))
 
-	authHandler := auth.NewHandler(auth.NewService(auth.NewRepository(s.db)))
+	authServiceClient, error := auth.NewAuthServiceClient("auth_service:50051")
+
+	if error != nil {
+		return error
+	}
+
+	authHandler := auth.NewHandler(auth.NewService(authServiceClient))
 	mux.Handle("POST /auth/login", http.HandlerFunc(authHandler.LoginHandler))
 	mux.Handle("POST /auth/register", http.HandlerFunc(authHandler.RegisterHandler))
 	return http.ListenAndServe(s.addr, mux)
