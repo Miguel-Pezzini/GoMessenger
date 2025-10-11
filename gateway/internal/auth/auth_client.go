@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	authpb "github.com/Miguel-Pezzini/real_time_chat/gateway/internal/pb/proto/auth"
+	authpb "github.com/Miguel-Pezzini/real_time_chat/gateway/internal/pb"
 	"google.golang.org/grpc"
 )
 

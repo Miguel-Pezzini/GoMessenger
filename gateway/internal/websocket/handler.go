@@ -36,13 +36,7 @@ func (h *WsHandler) HandleConnection(w http.ResponseWriter, r *http.Request) {
 		log.Println("Erro ao fazer upgrade:", err)
 		return
 	}
-
-	userID, err := auth.GetUserIDFromRequest(r)
-	if err != nil {
-		conn.WriteMessage(websocket.TextMessage, []byte("Error with authentication"))
-		conn.Close()
-		return
-	}
+	userID := r.Context().Value(auth.UserIDKey).(string)
 	if userID == "" {
 		conn.WriteMessage(websocket.TextMessage, []byte("user query param required"))
 		conn.Close()

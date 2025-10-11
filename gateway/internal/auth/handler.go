@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	authpb "github.com/Miguel-Pezzini/real_time_chat/gateway/internal/pb/proto/auth"
+	authpb "github.com/Miguel-Pezzini/real_time_chat/gateway/internal/pb"
 )
 
 type Handler struct {
