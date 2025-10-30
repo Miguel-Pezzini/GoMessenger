@@ -1,4 +1,4 @@
-# 💬 Real-Time Chat Backend in Go
+# 💬 GoMessenger, a Real-Time Chat Backend in Go
 
 The GoMessenger is a **real-time chat platform** built with **Go**, designed to explore advanced backend engineering concepts — including caching, messaging, rate limiting, observability, end-to-end testing, and NoSQL databases.
 
