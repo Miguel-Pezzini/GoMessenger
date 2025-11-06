@@ -25,17 +25,15 @@ func NewService(repo *RedisRepository) *Service {
 func (s *Service) HandleIncoming(payload string) {
 	var msg Message
 	if err := json.Unmarshal([]byte(payload), &msg); err != nil {
-		log.Println("Erro ao decodificar mensagem:", err)
+		log.Println("Error to unmarshal message", err)
 		return
 	}
-
-	log.Printf("📨 Recebido via Redis: %s -> %s: %s\n", msg.SenderID, msg.ReceiverID, msg.Content)
 }
 
 func (s *Service) SendMessage(msg Message) error {
 	gatewayID, err := s.repo.GetSession(msg.ReceiverID)
 	if err != nil {
-		log.Println("Receptor não encontrado:", err)
+		log.Println("Receptor not found:", err)
 		return err
 	}
 
