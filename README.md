@@ -11,40 +11,11 @@ The GoMessenger is a **real-time chat platform** built with **Go**, designed to 
 | Language           | Go (Golang)                                              |
 | Communication      | WebSocket (`gorilla/websocket` or `nhooyr.io/websocket`) |
 | Cache / Sessions   | Redis                                                    |
-| Messaging          | RabbitMQ / NATS / AWS SQS                                |
-| Database           | MongoDB or DynamoDB                                      |
-| Observability      | Prometheus, Grafana, OpenTelemetry, Jaeger               |
+| Messaging          | RabbitMQ | Redis                                         |
+| Database           | MongoDB                                                  |
+| Observability      | Prometheus, Grafana                                      |
 | Authentication     | JWT                                                      |
 | End-to-End Testing | testcontainers-go + testify                              |
-
----
-
-## 🧩 Architecture Overview
-
-```
-           +----------------------+
-           |      API Gateway     |
-           | (HTTP + WebSocket)   |
-           +----------+-----------+
-                      |
-        +-------------+--------------+
-        |                            |
-+---------------+          +------------------+
-| Message Bus   |          |    Redis Cache   |
-| (RabbitMQ/NATS|          | (Sessions, PubSub)|
-| /SQS)         |          +------------------+
-+---------------+                     |
-        |                              |
-  +------------+             +-----------------+
-  | Chat Svc   |             | Presence Svc     |
-  | (Messages, |             | (User Status)    |
-  | History)   |             +-----------------+
-  +------------+
-        |
- +------------------+
- | MongoDB/DynamoDB |
- +------------------+
-```
 
 ---
 
@@ -52,54 +23,32 @@ The GoMessenger is a **real-time chat platform** built with **Go**, designed to 
 
 ### 🔹 **Gateway Service**
 
+- Client endpoint service.
 - Handles WebSocket connections.
-- Authenticates users via JWT and stores sessions in Redis.
 - Applies **rate limiting** per user.
 - Publishes messages to the message queue.
+
+### 🔹 **Authentication Service**
+
+- Authenticates users via JWT and stores sessions in Redis.
+- Persist all users in NOSQL Database (Mongo)
 
 ### 🔹 **Chat Service**
 
 - Consumes messages from the queue.
-- Persists messages in the NoSQL database.
+- Persists messages in the NoSQL database (Mongo)
 - Publishes new message events through Redis Pub/Sub.
 - Ensures idempotent delivery.
 
-### 🔹 **Presence Service**
+### 🔹 **Presence Service** WIP
 
 - Tracks online/offline user status using Redis.
 - Publishes presence updates to gateways.
 
-### 🔹 **Notification Service**
+### 🔹 **Notification Service** WIP
 
 - Processes asynchronous events from the queue.
 - Sends external notifications (push, email, or simulated logs).
-
----
-
-## 🧾 Suggested Directory Structure
-
-```
-/chat-backend
-├── cmd/
-│   ├── gateway/
-│   ├── chat/
-│   ├── presence/
-│   └── notification/
-├── internal/
-│   ├── websocket/
-│   ├── redis/
-│   ├── messaging/
-│   ├── repository/
-│   ├── auth/
-│   ├── limiter/
-│   └── observability/
-├── pkg/
-│   └── models/
-├── tests/
-│   └── e2e/
-├── docker-compose.yml
-└── README.md
-```
 
 ---
 
@@ -109,38 +58,11 @@ The GoMessenger is a **real-time chat platform** built with **Go**, designed to 
 2. Session stored in Redis.
 3. User sends a message → published to the message queue (`chat.message.created`).
 4. Chat Service consumes, stores in MongoDB, and publishes via Redis Pub/Sub.
-5. Gateways receive and broadcast to connected clients in the same room.
-6. Presence Service updates online/offline status.
-7. Observability tools track message latency and throughput.
+5. Presence Service updates online/offline status.
+6. Observability tools track message latency and throughput.
 
----
-
-## 🔍 Observability
-
-- **Structured Logging:** `zerolog` or `logrus`
-- **Metrics (Prometheus):**
-
-  - `messages_sent_total`
-  - `active_connections_total`
-  - `avg_message_latency_ms`
-
-- **Distributed Tracing:** OpenTelemetry + Jaeger
-
----
-
-## 🧪 End-to-End Testing
-
-Using **testcontainers-go**, the E2E tests:
-
-- Start Redis, RabbitMQ, and MongoDB containers.
-- Simulate multiple WebSocket clients.
-- Send and receive messages through the full stack.
-- Validate message persistence and broadcast.
-- Measure end-to-end latency (<100ms locally).
-
----
-
-## 🧰 Getting Started
+---Miguel-Pezzini
+GoMessengerg Started
 
 ### Prerequisites
 
@@ -151,18 +73,17 @@ Using **testcontainers-go**, the E2E tests:
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-username/chat-backend.git
-cd chat-backend
+git clone https://github.com/Miguel-Pezzini/GoMessenger.git
 
 # Start dependencies
 docker-compose up -d
 
 # Run the gateway service
-go run ./cmd/gateway
+go run ./gateway/cmd
 
 # Run other services
-go run ./cmd/chat
-go run ./cmd/presence
+go run ./chat_service/cmd
+go run ./auth_service/cmd
 ```
 
 ---
@@ -171,7 +92,7 @@ go run ./cmd/presence
 
 ✅ Real-time communication with WebSocket
 ✅ Distributed cache and Pub/Sub (Redis)
-✅ Asynchronous messaging (RabbitMQ/NATS/SQS)
+✅ Asynchronous messaging (Redis Streams/RabbitMQ/NATS/SQS)
 WIP: Rate limiting and connection control
 WIP: Full observability (logs, metrics, tracing)
 WIP: End-to-end integration testing 
