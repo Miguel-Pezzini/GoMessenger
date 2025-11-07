@@ -13,7 +13,7 @@ import (
 
 type WsHandler struct {
 	service  *Service
-	clients  map[string]*websocket.Conn
+	clients  map[int]*websocket.Conn
 	clientsM sync.RWMutex
 }
 
@@ -26,7 +26,7 @@ var upgrader = websocket.Upgrader{
 func NewWsHandler(service *Service) *WsHandler {
 	return &WsHandler{
 		service: service,
-		clients: make(map[string]*websocket.Conn),
+		clients: make(map[int]*websocket.Conn),
 	}
 }
 
@@ -36,8 +36,8 @@ func (h *WsHandler) HandleConnection(w http.ResponseWriter, r *http.Request) {
 		log.Println("Erro ao fazer upgrade:", err)
 		return
 	}
-	userID := r.Context().Value(auth.UserIDKey).(string)
-	if userID == "" {
+	userID := r.Context().Value(auth.UserIDKey).(int)
+	if userID == 0 {
 		conn.WriteMessage(websocket.TextMessage, []byte("user query param required"))
 		conn.Close()
 		return
@@ -54,12 +54,12 @@ func (h *WsHandler) HandleConnection(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 
-		var msg Message
+		var msg MessageRequest
+		msg.SenderID = userID
 		if err := json.Unmarshal(msgBytes, &msg); err != nil {
 			log.Println("Erro ao parsear mensagem:", err)
 			continue
 		}
-		log.Println("Mandando mensagen", msg)
-		h.service.SendMessage(msg)
+		h.service.PersistMessage(msg)
 	}
 }

@@ -37,7 +37,7 @@ func (s *Server) Start() error {
 	ctx := context.Background()
 	service := chat.NewService(chat.NewMongoRepository(s.mongo))
 
-	streamName := "chat.created"
+	streamName := "message.created"
 
 	func() {
 		for {
@@ -74,14 +74,14 @@ func (s *Server) Start() error {
 						log.Println("failed to persist message:", err)
 						continue
 					}
-					b, err := json.Marshal(messageResponse)
+					res, err := json.Marshal(messageResponse)
 					if err != nil {
 						log.Println("failed to marshal response:", err)
 						continue
 					}
 
-					channel := "chat.gateway." + messageResponse.ReceiverID
-					if err := s.rdb.Publish(ctx, channel, string(b)).Err(); err != nil {
+					channel := "message.created"
+					if err := s.rdb.Publish(ctx, channel, res).Err(); err != nil {
 						log.Println("failed to publish to gateway channel:", err)
 						continue
 					}

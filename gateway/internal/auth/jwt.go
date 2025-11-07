@@ -9,7 +9,7 @@ import (
 var secretKey = []byte("secret-key")
 
 type Claims struct {
-	UserID string `json:"user_id"`
+	UserID int `json:"userId"`
 	jwt.RegisteredClaims
 }
 
