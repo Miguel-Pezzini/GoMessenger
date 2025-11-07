@@ -40,3 +40,13 @@ func (r *RedisRepository) SetSession(userID, gatewayID string) error {
 func (r *RedisRepository) GetSession(userID string) (string, error) {
 	return r.rdb.Get(r.ctx, "session:"+userID).Result()
 }
+
+func (r *RedisRepository) AddToStream(stream string, data string) error {
+	ctx := context.Background()
+	return r.rdb.XAdd(ctx, &redis.XAddArgs{
+		Stream: stream,
+		Values: map[string]interface{}{
+			"data": data,
+		},
+	}).Err()
+}

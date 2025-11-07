@@ -34,7 +34,8 @@ func (s *Server) Start() error {
 	mux := http.NewServeMux()
 
 	wsHandler := websocket.NewWsHandler(websocket.NewService(websocket.NewRedisRepository(s.rdb)))
-	mux.Handle("GET /ws", auth.JWTMiddleware(http.HandlerFunc(wsHandler.HandleConnection)))
+	// mux.Handle("GET /ws", auth.JWTMiddleware(http.HandlerFunc(wsHandler.HandleConnection)))
+	mux.Handle("GET /ws", http.HandlerFunc(wsHandler.HandleConnection))
 
 	authHandler := auth.NewHandler(auth.NewService(s.auth_service))
 	mux.Handle("POST /auth/login", http.HandlerFunc(authHandler.LoginHandler))

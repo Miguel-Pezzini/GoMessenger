@@ -47,9 +47,6 @@ func (h *WsHandler) HandleConnection(w http.ResponseWriter, r *http.Request) {
 	h.clients[userID] = conn
 	h.clientsM.Unlock()
 
-	h.service.RegisterUser(userID)
-	log.Printf("👤 %s conectado\n", userID)
-
 	for {
 		_, msgBytes, err := conn.ReadMessage()
 		if err != nil {
@@ -62,7 +59,7 @@ func (h *WsHandler) HandleConnection(w http.ResponseWriter, r *http.Request) {
 			log.Println("Erro ao parsear mensagem:", err)
 			continue
 		}
-
+		log.Println("Mandando mensagen", msg)
 		h.service.SendMessage(msg)
 	}
 }
