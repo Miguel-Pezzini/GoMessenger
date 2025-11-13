@@ -42,12 +42,6 @@ The GoMessenger is a **real-time chat platform** built with **Go**, designed to 
 - Publishes new message events through Redis Pub/Sub.
 - Ensures idempotent delivery.
 
-- Presence Service
-
-- Tracks real-time user presence (online/offline, current chat ID).
-- Stores connection state in Redis.
-- Publishes status changes to interested services (e.g., NotificationService).
-
 ### 🔹 **Presence Service** WIP
 
 - Tracks real-time user presence (online/offline, current chat ID) with redis.
