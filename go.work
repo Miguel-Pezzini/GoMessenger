@@ -1,0 +1,7 @@
+go 1.25.1
+
+use (
+	./services/auth_service
+	./services/chat_service
+	./services/gateway
+)
