@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"sync"
 
@@ -44,9 +45,18 @@ func (h *WsHandler) HandleConnection(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	conn.SetReadDeadline(time.Now().Add(60 * time.Second))
+
+	conn.SetPongHandler(func(appData string) error {
+		conn.SetReadDeadline(time.Now().Add(60 * time.Second))
+		return nil
+	})
+
 	h.clientsM.Lock()
 	h.clients[userID] = conn
 	h.clientsM.Unlock()
+
+	go h.startPingLoop(userID, conn)
 
 	for {
 		_, msgBytes, err := conn.ReadMessage()
@@ -63,6 +73,10 @@ func (h *WsHandler) HandleConnection(w http.ResponseWriter, r *http.Request) {
 		}
 		h.service.PersistMessage(msg)
 	}
+
+	h.clientsM.Lock()
+	delete(h.clients, userID)
+	h.clientsM.Unlock()
 }
 
 func (h *WsHandler) StartPubSubListener() {
@@ -83,4 +97,21 @@ func (h *WsHandler) StartPubSubListener() {
 			conn.WriteJSON(msg)
 		}
 	})
+}
+
+func (h *WsHandler) startPingLoop(userID string, conn *websocket.Conn) {
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		if err := conn.WriteControl(
+			websocket.PingMessage,
+			[]byte{},
+			time.Now().Add(5*time.Second),
+		); err != nil {
+			log.Println("Ping error, closing connection:", err)
+			conn.Close()
+			return
+		}
+	}
 }
