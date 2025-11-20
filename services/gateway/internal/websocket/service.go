@@ -17,19 +17,11 @@ func NewService(repo *RedisRepository) *Service {
 	return s
 }
 
-func (s *Service) HandleIncoming(payload string) {
-	var msg MessageRequest
-	if err := json.Unmarshal([]byte(payload), &msg); err != nil {
-		log.Println("Error to unmarshal message", err)
-		return
-	}
-}
-
 func (s *Service) SubscribeChatChannel(channelName string, handler func(string)) {
 	s.repo.Subscribe(channelName, handler)
 }
 
-func (s *Service) PersistMessage(msg MessageRequest) error {
+func (s *Service) PersistMessage(msg ChatMessagePayload) error {
 	payload, _ := json.Marshal(msg)
 
 	log.Println("Sending to stream", payload)

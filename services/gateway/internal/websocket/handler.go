@@ -65,13 +65,19 @@ func (h *WsHandler) HandleConnection(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 
-		var msg MessageRequest
-		msg.SenderID = userID
-		if err := json.Unmarshal(msgBytes, &msg); err != nil {
+		var gatewayMessage GatewayMessage
+		if err := json.Unmarshal(msgBytes, &gatewayMessage); err != nil {
 			log.Println("Erro ao parsear mensagem:", err)
 			continue
 		}
-		h.service.PersistMessage(msg)
+		switch gatewayMessage.Type {
+		case MessageTypeChat:
+			{
+				var payload ChatMessagePayload
+				json.Unmarshal(gatewayMessage.Payload, &payload)
+				h.service.PersistMessage(payload)
+			}
+		}
 	}
 
 	h.clientsM.Lock()
