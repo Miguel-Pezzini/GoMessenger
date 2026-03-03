@@ -5,11 +5,9 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"sync"
 	"time"
 
-	"sync"
-
-	"github.com/Miguel-Pezzini/GoMessenger/services/gateway/internal/auth"
 	"github.com/gorilla/websocket"
 )
 
@@ -33,20 +31,19 @@ func NewWsHandler(service *Service) *WsHandler {
 }
 
 func (h *WsHandler) HandleConnection(w http.ResponseWriter, r *http.Request) {
+	userID := r.Header.Get("X-User-ID")
+	if userID == "" {
+		http.Error(w, "missing user id", http.StatusUnauthorized)
+		return
+	}
+
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Println("Erro ao fazer upgrade:", err)
 		return
 	}
-	userID := r.Context().Value(auth.UserIDKey).(string)
-	if userID == "" {
-		conn.WriteMessage(websocket.TextMessage, []byte("user query param required"))
-		conn.Close()
-		return
-	}
 
 	conn.SetReadDeadline(time.Now().Add(60 * time.Second))
-
 	conn.SetPongHandler(func(appData string) error {
 		conn.SetReadDeadline(time.Now().Add(60 * time.Second))
 		return nil
@@ -56,7 +53,7 @@ func (h *WsHandler) HandleConnection(w http.ResponseWriter, r *http.Request) {
 	h.clients[userID] = conn
 	h.clientsM.Unlock()
 
-	go h.startPingLoop(userID, conn)
+	go h.startPingLoop(conn)
 
 	for {
 		_, msgBytes, err := conn.ReadMessage()
@@ -72,11 +69,12 @@ func (h *WsHandler) HandleConnection(w http.ResponseWriter, r *http.Request) {
 		}
 		switch gatewayMessage.Type {
 		case MessageTypeChat:
-			{
-				var payload ChatMessagePayload
-				json.Unmarshal(gatewayMessage.Payload, &payload)
-				h.service.PersistMessage(payload)
+			var payload ChatMessagePayload
+			if err := json.Unmarshal(gatewayMessage.Payload, &payload); err != nil {
+				log.Println("Erro ao parsear payload de chat:", err)
+				continue
 			}
+			h.service.PersistMessage(payload)
 		}
 	}
 
@@ -86,7 +84,7 @@ func (h *WsHandler) HandleConnection(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *WsHandler) StartPubSubListener() {
-	h.service.SubscribeChatChannel(os.Getenv("REDIS_CHANNEL_CHAT"), func(payload string) {
+	go h.service.SubscribeChatChannel(os.Getenv("REDIS_CHANNEL_CHAT"), func(payload string) {
 		var msg MessageResponse
 		if err := json.Unmarshal([]byte(payload), &msg); err != nil {
 			log.Println("Erro ao parsear mensagem Pub/Sub:", err)
@@ -97,26 +95,22 @@ func (h *WsHandler) StartPubSubListener() {
 		defer h.clientsM.Unlock()
 
 		if conn, ok := h.clients[msg.ReceiverID]; ok {
-			conn.WriteJSON(msg)
+			_ = conn.WriteJSON(msg)
 		}
 		if conn, ok := h.clients[msg.SenderID]; ok {
-			conn.WriteJSON(msg)
+			_ = conn.WriteJSON(msg)
 		}
 	})
 }
 
-func (h *WsHandler) startPingLoop(userID string, conn *websocket.Conn) {
+func (h *WsHandler) startPingLoop(conn *websocket.Conn) {
 	ticker := time.NewTicker(30 * time.Second)
 	defer ticker.Stop()
 
 	for range ticker.C {
-		if err := conn.WriteControl(
-			websocket.PingMessage,
-			[]byte{},
-			time.Now().Add(5*time.Second),
-		); err != nil {
+		if err := conn.WriteControl(websocket.PingMessage, []byte{}, time.Now().Add(5*time.Second)); err != nil {
 			log.Println("Ping error, closing connection:", err)
-			conn.Close()
+			_ = conn.Close()
 			return
 		}
 	}

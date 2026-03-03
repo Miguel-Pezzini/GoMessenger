@@ -19,6 +19,7 @@ func main() {
 		{"auth_service", "./services/auth_service/cmd"},
 		{"chat_service", "./services/chat_service/cmd"},
 		{"gateway", "./services/gateway/cmd"},
+		{"websocket_service", "./services/websocket_service/cmd"},
 	}
 
 	var processes []*exec.Cmd

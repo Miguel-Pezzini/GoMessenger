@@ -57,9 +57,9 @@ func (s *Server) Start() error {
 			for _, st := range streams {
 				for _, msg := range st.Messages {
 
-					rawData, ok := msg.Values["data"].(string)
+					rawData, ok := msg.Values["payload"].(string)
 					if !ok {
-						log.Println("invalid message format, missing 'data'")
+						log.Println("invalid message format, missing 'payload'")
 						_ = s.rdb.XDel(ctx, streamName, msg.ID).Err()
 						continue
 					}

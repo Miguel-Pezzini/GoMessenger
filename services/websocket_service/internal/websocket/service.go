@@ -11,10 +11,7 @@ type Service struct {
 }
 
 func NewService(repo *RedisRepository) *Service {
-	s := &Service{
-		repo: repo,
-	}
-	return s
+	return &Service{repo: repo}
 }
 
 func (s *Service) SubscribeChatChannel(channelName string, handler func(string)) {

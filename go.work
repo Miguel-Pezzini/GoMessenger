@@ -4,5 +4,6 @@ use (
 	./services/auth_service
 	./services/chat_service
 	./services/gateway
+	./services/websocket_service
 	./tests_e2e
 )
