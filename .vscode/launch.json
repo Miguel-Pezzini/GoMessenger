@@ -2,11 +2,11 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Debug Gateway",
+      "name": "Debug Chat Service",
       "type": "go",
       "request": "launch",
       "mode": "auto",
-      "program": "${workspaceFolder}/services/auth_service/cmd",
+      "program": "${workspaceFolder}/services/chat_service/cmd",
       "env": {},
       "args": []
     }

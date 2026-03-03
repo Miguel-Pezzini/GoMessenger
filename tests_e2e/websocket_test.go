@@ -57,7 +57,7 @@ func TestWebsocketTwoUsersExchangeMessage(t *testing.T) {
 	expected := chatPayload{
 		SenderID:   senderID,
 		ReceiverID: receiverID,
-		Content:    "ola do websocket",
+		Content:    "olaa do websocket",
 	}
 
 	msg := gatewayMessage{
