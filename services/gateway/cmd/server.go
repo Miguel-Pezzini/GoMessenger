@@ -36,5 +36,27 @@ func (s *Server) Start() error {
 	authHandler := auth.NewHandler(auth.NewService(s.authServiceCli))
 	mux.Handle("POST /auth/login", http.HandlerFunc(authHandler.LoginHandler))
 	mux.Handle("POST /auth/register", http.HandlerFunc(authHandler.RegisterHandler))
-	return http.ListenAndServe(s.addr, mux)
+	return http.ListenAndServe(s.addr, withCORS(mux))
+}
+
+func withCORS(next http.Handler) http.Handler {
+	allowedOrigin := "http://localhost:5173"
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		origin := r.Header.Get("Origin")
+		if origin == allowedOrigin {
+			w.Header().Set("Access-Control-Allow-Origin", allowedOrigin)
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type")
+			w.Header().Set("Access-Control-Allow-Credentials", "true")
+			w.Header().Set("Vary", "Origin")
+		}
+
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
 }
