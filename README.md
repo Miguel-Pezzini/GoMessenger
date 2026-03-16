@@ -81,14 +81,15 @@ git clone https://github.com/Miguel-Pezzini/GoMessenger.git
 # Start dependencies
 docker-compose up -d
 
-cd services
+# Run all active services
+go run ./cmd/dev
 
-# Run the gateway service
-go run ./gateway/cmd
-
-# Run other services
-go run ./chat_service/cmd
-go run ./auth_service/cmd
+# Or run them individually
+go run ./services/gateway/cmd
+go run ./services/auth/cmd
+go run ./services/friends/cmd
+go run ./services/chat/cmd
+go run ./services/websocket/cmd
 ```
 
 ---

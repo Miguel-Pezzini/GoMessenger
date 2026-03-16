@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package friends;
 
-option go_package = "github.com/Miguel-Pezzini/GoMessenger/services/friends_service/proto;friendspb";
+option go_package = "github.com/Miguel-Pezzini/GoMessenger/pkg/contracts/friendspb;friendspb";
 
 service FriendsService {
   rpc CreateFriend (CreateFriendRequest) returns (FriendResponse);
