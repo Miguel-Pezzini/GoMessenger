@@ -23,8 +23,12 @@ func NewService(client ServiceClient) *Service {
 	return &Service{client: client}
 }
 
-func (s *Service) Create(ctx context.Context, ownerID string, req *friendspb.CreateFriendRequest) (*Friend, error) {
-	res, err := s.client.CreateFriend(ctx, req)
+func (s *Service) Create(ctx context.Context, ownerID string, req CreateFriendRequest) (*Friend, error) {
+	res, err := s.client.CreateFriend(ctx, &friendspb.CreateFriendRequest{
+		Name:     req.Name,
+		Username: req.Username,
+		OwnerId:  ownerID,
+	})
 	if err != nil {
 		return nil, err
 	}
