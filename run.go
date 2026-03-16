@@ -18,6 +18,7 @@ func main() {
 	services := []Service{
 		{"auth_service", "./services/auth_service/cmd"},
 		{"chat_service", "./services/chat_service/cmd"},
+		{"friends_service", "./services/friends_service/cmd"},
 		{"gateway", "./services/gateway/cmd"},
 		{"websocket_service", "./services/websocket_service/cmd"},
 	}
@@ -44,7 +45,6 @@ func main() {
 		processes = append(processes, cmd)
 	}
 
-	// Lida com CTRL+C para terminar todos
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
 
@@ -56,7 +56,6 @@ func main() {
 			continue
 		}
 
-		// No Windows, Kill é diferente
 		if runtime.GOOS == "windows" {
 			_ = p.Process.Kill()
 		} else {

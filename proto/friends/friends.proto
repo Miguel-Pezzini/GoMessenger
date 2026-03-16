@@ -1,0 +1,57 @@
+syntax = "proto3";
+
+package friends;
+
+option go_package = "github.com/Miguel-Pezzini/GoMessenger/services/friends_service/proto;friendspb";
+
+service FriendsService {
+  rpc CreateFriend (CreateFriendRequest) returns (FriendResponse);
+  rpc GetFriend (GetFriendRequest) returns (FriendResponse);
+  rpc ListFriends (ListFriendsRequest) returns (ListFriendsResponse);
+  rpc UpdateFriend (UpdateFriendRequest) returns (FriendResponse);
+  rpc DeleteFriend (DeleteFriendRequest) returns (DeleteFriendResponse);
+}
+
+message CreateFriendRequest {
+  string owner_id = 1;
+  string username = 2;
+  string name = 3;
+}
+
+message GetFriendRequest {
+  string owner_id = 1;
+  string id = 2;
+}
+
+message ListFriendsRequest {
+  string owner_id = 1;
+}
+
+message UpdateFriendRequest {
+  string owner_id = 1;
+  string id = 2;
+  string username = 3;
+  string name = 4;
+}
+
+message DeleteFriendRequest {
+  string owner_id = 1;
+  string id = 2;
+}
+
+message FriendResponse {
+  string id = 1;
+  string owner_id = 2;
+  string username = 3;
+  string name = 4;
+  string created_at = 5;
+  string updated_at = 6;
+}
+
+message ListFriendsResponse {
+  repeated FriendResponse friends = 1;
+}
+
+message DeleteFriendResponse {
+  bool deleted = 1;
+}

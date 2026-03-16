@@ -3,6 +3,7 @@ go 1.25.1
 use (
 	./services/auth_service
 	./services/chat_service
+	./services/friends_service
 	./services/gateway
 	./services/websocket_service
 	./tests_e2e

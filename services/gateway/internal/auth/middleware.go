@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"net/http"
+	"strings"
 )
 
 type contextKey string
@@ -11,7 +12,7 @@ const UserIDKey contextKey = "userId"
 
 func JWTMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		tokenString := r.URL.Query().Get("token")
+		tokenString := extractToken(r)
 		if tokenString == "" {
 			http.Error(w, "Missing token", http.StatusUnauthorized)
 			return
@@ -26,4 +27,13 @@ func JWTMiddleware(next http.Handler) http.Handler {
 
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
+}
+
+func extractToken(r *http.Request) string {
+	if authHeader := r.Header.Get("Authorization"); authHeader != "" {
+		if token, ok := strings.CutPrefix(authHeader, "Bearer "); ok {
+			return strings.TrimSpace(token)
+		}
+	}
+	return strings.TrimSpace(r.URL.Query().Get("token"))
 }

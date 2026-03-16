@@ -5,23 +5,38 @@ import (
 	"net/http"
 
 	"github.com/Miguel-Pezzini/GoMessenger/services/gateway/internal/auth"
+	"github.com/Miguel-Pezzini/GoMessenger/services/gateway/internal/friends"
 	authpb "github.com/Miguel-Pezzini/GoMessenger/services/gateway/internal/pb/auth"
-	"github.com/Miguel-Pezzini/GoMessenger/services/gateway/internal/websocket_proxy"
+	friendspb "github.com/Miguel-Pezzini/GoMessenger/services/gateway/internal/pb/friends"
+	websocketproxy "github.com/Miguel-Pezzini/GoMessenger/services/gateway/internal/websocket_proxy"
 )
 
 type Server struct {
-	addr           string
-	websocketURL   string
-	authServiceCli authpb.AuthServiceClient
+	addr             string
+	websocketURL     string
+	authServiceCli   authpb.AuthServiceClient
+	friendServiceCli friendspb.FriendsServiceClient
 }
 
-func NewServer(addr, authAddr, websocketURL string) *Server {
+func NewServer(addr, authAddr, friendAddr, websocketURL string) *Server {
 	authService, err := auth.NewAuthServiceClient(authAddr)
 	if err != nil {
 		log.Fatal("error connecting with auth service", err)
 	}
+
+	friendsService, err := friends.NewFriendsServiceClient(friendAddr)
+	if err != nil {
+		log.Fatal("error connecting with friends service", err)
+	}
+
 	log.Println("Gateway connected with Authentication Service")
-	return &Server{addr: addr, websocketURL: websocketURL, authServiceCli: authService}
+	log.Println("Gateway connected with Friends Service")
+	return &Server{
+		addr:             addr,
+		websocketURL:     websocketURL,
+		authServiceCli:   authService,
+		friendServiceCli: friendsService,
+	}
 }
 
 func (s *Server) Start() error {
@@ -36,6 +51,14 @@ func (s *Server) Start() error {
 	authHandler := auth.NewHandler(auth.NewService(s.authServiceCli))
 	mux.Handle("POST /auth/login", http.HandlerFunc(authHandler.LoginHandler))
 	mux.Handle("POST /auth/register", http.HandlerFunc(authHandler.RegisterHandler))
+
+	friendHandler := friends.NewHandler(friends.NewService(s.friendServiceCli))
+	mux.Handle("POST /friends", auth.JWTMiddleware(http.HandlerFunc(friendHandler.Create)))
+	mux.Handle("GET /friends", auth.JWTMiddleware(http.HandlerFunc(friendHandler.List)))
+	mux.Handle("GET /friends/{id}", auth.JWTMiddleware(http.HandlerFunc(friendHandler.GetByID)))
+	mux.Handle("PUT /friends/{id}", auth.JWTMiddleware(http.HandlerFunc(friendHandler.Update)))
+	mux.Handle("DELETE /friends/{id}", auth.JWTMiddleware(http.HandlerFunc(friendHandler.Delete)))
+
 	return http.ListenAndServe(s.addr, withCORS(mux))
 }
 
@@ -46,7 +69,7 @@ func withCORS(next http.Handler) http.Handler {
 		origin := r.Header.Get("Origin")
 		if origin == allowedOrigin {
 			w.Header().Set("Access-Control-Allow-Origin", allowedOrigin)
-			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 			w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type")
 			w.Header().Set("Access-Control-Allow-Credentials", "true")
 			w.Header().Set("Vary", "Origin")

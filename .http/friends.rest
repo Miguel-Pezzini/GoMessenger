@@ -1,0 +1,34 @@
+### Friends CRUD
+@baseUrl = http://localhost:8080
+@token = YOUR_JWT_TOKEN
+
+### Create friend
+POST {{baseUrl}}/friends
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "username": "john_doe",
+  "name": "John"
+}
+
+### List friends
+GET {{baseUrl}}/friends
+Authorization: Bearer {{token}}
+
+### Get friend by ID
+GET {{baseUrl}}/friends/{{friendId}}
+Authorization: Bearer {{token}}
+
+### Update friend
+PUT {{baseUrl}}/friends/{{friendId}}
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "name": "John Doe"
+}
+
+### Delete friend
+DELETE {{baseUrl}}/friends/{{friendId}}
+Authorization: Bearer {{token}}
