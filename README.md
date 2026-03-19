@@ -31,9 +31,10 @@ The GoMessenger is a **real-time chat platform** built with **Go**, designed to 
 
 ### 🔹 **Authentication Service**
 
-- Handles user registration and login (via gRPC and REST).
+- Handles user registration and login via gRPC.
 - Issues JWT tokens and manages sessions in Redis.
 - Persists user data in MongoDB.
+- HTTP clients should use the Gateway service for `/auth/register` and `/auth/login`.
 
 ### 🔹 **Chat Service**
 

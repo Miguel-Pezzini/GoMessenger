@@ -1,19 +1,23 @@
-### Login
-
-POST http://localhost:8080/auth/login 
-content-type: application/json
-
-{
-    "username": "user2",
-    "password": "testpass"
-}
-
 ### Register
 
-POST http://localhost:8080/auth/register 
+POST {{base_url}}/auth/register 
 content-type: application/json
 
 {
     "username": "user2",
     "password": "testpass"
 }
+
+### Login
+
+POST {{base_url}}/auth/login 
+content-type: application/json
+
+{
+    "username": "user2",
+    "password": "testpass"
+}
+
+> {%
+    client.global.set("auth_token", response.body.token);
+%}
