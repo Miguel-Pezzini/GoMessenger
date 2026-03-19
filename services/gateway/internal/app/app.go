@@ -72,11 +72,12 @@ func NewRouter(cfg Config, authService auth.ServiceClient, friendsService friend
 	mux.Handle("POST /auth/register", http.HandlerFunc(authHTTP.RegisterHandler))
 
 	friendsHTTP := friendshandler.New(friends.NewService(friendsService))
-	mux.Handle("POST /friends", jwtMiddleware.Wrap(http.HandlerFunc(friendsHTTP.Create)))
-	mux.Handle("GET /friends", jwtMiddleware.Wrap(http.HandlerFunc(friendsHTTP.List)))
-	mux.Handle("GET /friends/{id}", jwtMiddleware.Wrap(http.HandlerFunc(friendsHTTP.GetByID)))
-	mux.Handle("PUT /friends/{id}", jwtMiddleware.Wrap(http.HandlerFunc(friendsHTTP.Update)))
-	mux.Handle("DELETE /friends/{id}", jwtMiddleware.Wrap(http.HandlerFunc(friendsHTTP.Delete)))
+	mux.Handle("POST /friends/requests", jwtMiddleware.Wrap(http.HandlerFunc(friendsHTTP.SendFriendRequest)))
+	mux.Handle("POST /friends/requests/{id}/accept", jwtMiddleware.Wrap(http.HandlerFunc(friendsHTTP.AcceptFriendRequest)))
+	mux.Handle("DELETE /friends/requests/{id}/decline", jwtMiddleware.Wrap(http.HandlerFunc(friendsHTTP.DeclineFriendRequest)))
+	mux.Handle("GET /friends/requests/pending", jwtMiddleware.Wrap(http.HandlerFunc(friendsHTTP.ListPendingFriendRequests)))
+	mux.Handle("GET /friends", jwtMiddleware.Wrap(http.HandlerFunc(friendsHTTP.ListFriends)))
+	mux.Handle("DELETE /friends/{friendId}", jwtMiddleware.Wrap(http.HandlerFunc(friendsHTTP.RemoveFriend)))
 
 	return withCORS(cfg.AllowedOrigin, mux), nil
 }

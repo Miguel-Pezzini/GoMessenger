@@ -35,7 +35,12 @@ func Run() error {
 		return err
 	}
 
-	service := domain.NewService(mongorepo.NewRepository(db))
+	repo, err := mongorepo.NewRepository(db)
+	if err != nil {
+		return err
+	}
+
+	service := domain.NewService(repo)
 	server := grpctransport.NewServer(service)
 
 	listener, err := net.Listen("tcp", cfg.Address)
@@ -43,7 +48,7 @@ func Run() error {
 		return err
 	}
 
-	grpcServer := grpc.NewServer()
+	grpcServer := grpc.NewServer(grpc.ForceServerCodec(friendspb.JSONCodec()))
 	friendspb.RegisterFriendsServiceServer(grpcServer, server)
 
 	log.Printf("friends service listening on %s", cfg.Address)

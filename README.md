@@ -35,6 +35,7 @@ The GoMessenger is a **real-time chat platform** built with **Go**, designed to 
 - Issues JWT tokens and manages sessions in Redis.
 - Persists user data in MongoDB.
 - HTTP clients should use the Gateway service for `/auth/register` and `/auth/login`.
+- Friendship is modeled with separate `friend_requests` and `friends` collections, with acceptance creating both friendship directions transactionally.
 
 ### 🔹 **Chat Service**
 

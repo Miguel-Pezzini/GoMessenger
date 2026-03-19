@@ -8,11 +8,12 @@ import (
 )
 
 type ServiceClient interface {
-	CreateFriend(ctx context.Context, in *friendspb.CreateFriendRequest, opts ...grpc.CallOption) (*friendspb.FriendResponse, error)
+	SendFriendRequest(ctx context.Context, in *friendspb.SendFriendRequestRequest, opts ...grpc.CallOption) (*friendspb.FriendRequestResponse, error)
+	AcceptFriendRequest(ctx context.Context, in *friendspb.AcceptFriendRequestRequest, opts ...grpc.CallOption) (*friendspb.ActionResponse, error)
+	DeclineFriendRequest(ctx context.Context, in *friendspb.DeclineFriendRequestRequest, opts ...grpc.CallOption) (*friendspb.ActionResponse, error)
+	RemoveFriend(ctx context.Context, in *friendspb.RemoveFriendRequest, opts ...grpc.CallOption) (*friendspb.ActionResponse, error)
 	ListFriends(ctx context.Context, in *friendspb.ListFriendsRequest, opts ...grpc.CallOption) (*friendspb.ListFriendsResponse, error)
-	GetFriend(ctx context.Context, in *friendspb.GetFriendRequest, opts ...grpc.CallOption) (*friendspb.FriendResponse, error)
-	UpdateFriend(ctx context.Context, in *friendspb.UpdateFriendRequest, opts ...grpc.CallOption) (*friendspb.FriendResponse, error)
-	DeleteFriend(ctx context.Context, in *friendspb.DeleteFriendRequest, opts ...grpc.CallOption) (*friendspb.DeleteFriendResponse, error)
+	ListPendingFriendRequests(ctx context.Context, in *friendspb.ListPendingFriendRequestsRequest, opts ...grpc.CallOption) (*friendspb.ListPendingFriendRequestsResponse, error)
 }
 
 type Service struct {
@@ -23,64 +24,81 @@ func NewService(client ServiceClient) *Service {
 	return &Service{client: client}
 }
 
-func (s *Service) Create(ctx context.Context, ownerID string, req CreateFriendRequest) (*Friend, error) {
-	res, err := s.client.CreateFriend(ctx, &friendspb.CreateFriendRequest{
-		Name:     req.Name,
-		Username: req.Username,
-		OwnerId:  ownerID,
+func (s *Service) SendFriendRequest(ctx context.Context, actorID string, req SendFriendRequestRequest) (*FriendRequest, error) {
+	res, err := s.client.SendFriendRequest(ctx, &friendspb.SendFriendRequestRequest{
+		SenderId:   actorID,
+		ReceiverId: req.ReceiverID,
 	})
 	if err != nil {
 		return nil, err
 	}
-	return mapFriend(res), nil
+	return mapFriendRequest(res), nil
 }
 
-func (s *Service) List(ctx context.Context, ownerID string) ([]*Friend, error) {
-	res, err := s.client.ListFriends(ctx, &friendspb.ListFriendsRequest{OwnerId: ownerID})
+func (s *Service) AcceptFriendRequest(ctx context.Context, actorID, requestID string) error {
+	_, err := s.client.AcceptFriendRequest(ctx, &friendspb.AcceptFriendRequestRequest{
+		ActorId:   actorID,
+		RequestId: requestID,
+	})
+	return err
+}
+
+func (s *Service) DeclineFriendRequest(ctx context.Context, actorID, requestID string) error {
+	_, err := s.client.DeclineFriendRequest(ctx, &friendspb.DeclineFriendRequestRequest{
+		ActorId:   actorID,
+		RequestId: requestID,
+	})
+	return err
+}
+
+func (s *Service) RemoveFriend(ctx context.Context, actorID, friendID string) error {
+	_, err := s.client.RemoveFriend(ctx, &friendspb.RemoveFriendRequest{
+		ActorId:  actorID,
+		FriendId: friendID,
+	})
+	return err
+}
+
+func (s *Service) ListFriends(ctx context.Context, actorID string) ([]*Friend, error) {
+	res, err := s.client.ListFriends(ctx, &friendspb.ListFriendsRequest{UserId: actorID})
 	if err != nil {
 		return nil, err
 	}
 
-	friends := make([]*Friend, 0, len(res.GetFriends()))
-	for _, item := range res.GetFriends() {
+	friends := make([]*Friend, 0, len(res.Friends))
+	for _, item := range res.Friends {
 		friends = append(friends, mapFriend(item))
 	}
 	return friends, nil
 }
 
-func (s *Service) GetByID(ctx context.Context, ownerID, id string) (*Friend, error) {
-	res, err := s.client.GetFriend(ctx, &friendspb.GetFriendRequest{OwnerId: ownerID, Id: id})
+func (s *Service) ListPendingFriendRequests(ctx context.Context, actorID string) ([]*FriendRequest, error) {
+	res, err := s.client.ListPendingFriendRequests(ctx, &friendspb.ListPendingFriendRequestsRequest{UserId: actorID})
 	if err != nil {
 		return nil, err
 	}
-	return mapFriend(res), nil
-}
 
-func (s *Service) Update(ctx context.Context, ownerID, id string, req UpdateFriendRequest) (*Friend, error) {
-	res, err := s.client.UpdateFriend(ctx, &friendspb.UpdateFriendRequest{
-		OwnerId:  ownerID,
-		Id:       id,
-		Username: req.Username,
-		Name:     req.Name,
-	})
-	if err != nil {
-		return nil, err
+	requests := make([]*FriendRequest, 0, len(res.Requests))
+	for _, item := range res.Requests {
+		requests = append(requests, mapFriendRequest(item))
 	}
-	return mapFriend(res), nil
-}
-
-func (s *Service) Delete(ctx context.Context, ownerID, id string) error {
-	_, err := s.client.DeleteFriend(ctx, &friendspb.DeleteFriendRequest{OwnerId: ownerID, Id: id})
-	return err
+	return requests, nil
 }
 
 func mapFriend(pb *friendspb.FriendResponse) *Friend {
 	return &Friend{
-		ID:        pb.GetId(),
-		OwnerID:   pb.GetOwnerId(),
-		Username:  pb.GetUsername(),
-		Name:      pb.GetName(),
-		CreatedAt: pb.GetCreatedAt(),
-		UpdatedAt: pb.GetUpdatedAt(),
+		ID:        pb.Id,
+		UserID:    pb.UserId,
+		FriendID:  pb.FriendId,
+		CreatedAt: pb.CreatedAt,
+	}
+}
+
+func mapFriendRequest(pb *friendspb.FriendRequestResponse) *FriendRequest {
+	return &FriendRequest{
+		ID:         pb.Id,
+		SenderID:   pb.SenderId,
+		ReceiverID: pb.ReceiverId,
+		CreatedAt:  pb.CreatedAt,
 	}
 }

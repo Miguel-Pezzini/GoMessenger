@@ -20,24 +20,37 @@ func NewServer(service *domain.Service) *Server {
 	return &Server{service: service}
 }
 
-func (s *Server) CreateFriend(ctx context.Context, req *friendspb.CreateFriendRequest) (*friendspb.FriendResponse, error) {
-	friend, err := s.service.Create(ctx, req.GetOwnerId(), req.GetUsername(), req.GetName())
+func (s *Server) SendFriendRequest(ctx context.Context, req *friendspb.SendFriendRequestRequest) (*friendspb.FriendRequestResponse, error) {
+	request, err := s.service.SendFriendRequest(ctx, req.SenderId, req.ReceiverId)
 	if err != nil {
 		return nil, mapError(err)
 	}
-	return mapFriendResponse(friend), nil
+	return mapFriendRequestResponse(request), nil
 }
 
-func (s *Server) GetFriend(ctx context.Context, req *friendspb.GetFriendRequest) (*friendspb.FriendResponse, error) {
-	friend, err := s.service.GetByID(ctx, req.GetOwnerId(), req.GetId())
-	if err != nil {
+func (s *Server) AcceptFriendRequest(ctx context.Context, req *friendspb.AcceptFriendRequestRequest) (*friendspb.ActionResponse, error) {
+	if err := s.service.AcceptFriendRequest(ctx, req.ActorId, req.RequestId); err != nil {
 		return nil, mapError(err)
 	}
-	return mapFriendResponse(friend), nil
+	return &friendspb.ActionResponse{Success: true}, nil
+}
+
+func (s *Server) DeclineFriendRequest(ctx context.Context, req *friendspb.DeclineFriendRequestRequest) (*friendspb.ActionResponse, error) {
+	if err := s.service.DeclineFriendRequest(ctx, req.ActorId, req.RequestId); err != nil {
+		return nil, mapError(err)
+	}
+	return &friendspb.ActionResponse{Success: true}, nil
+}
+
+func (s *Server) RemoveFriend(ctx context.Context, req *friendspb.RemoveFriendRequest) (*friendspb.ActionResponse, error) {
+	if err := s.service.RemoveFriend(ctx, req.ActorId, req.FriendId); err != nil {
+		return nil, mapError(err)
+	}
+	return &friendspb.ActionResponse{Success: true}, nil
 }
 
 func (s *Server) ListFriends(ctx context.Context, req *friendspb.ListFriendsRequest) (*friendspb.ListFriendsResponse, error) {
-	friendsList, err := s.service.ListByOwner(ctx, req.GetOwnerId())
+	friendsList, err := s.service.ListFriends(ctx, req.UserId)
 	if err != nil {
 		return nil, mapError(err)
 	}
@@ -49,38 +62,51 @@ func (s *Server) ListFriends(ctx context.Context, req *friendspb.ListFriendsRequ
 	return response, nil
 }
 
-func (s *Server) UpdateFriend(ctx context.Context, req *friendspb.UpdateFriendRequest) (*friendspb.FriendResponse, error) {
-	friend, err := s.service.Update(ctx, req.GetOwnerId(), req.GetId(), req.GetUsername(), req.GetName())
+func (s *Server) ListPendingFriendRequests(ctx context.Context, req *friendspb.ListPendingFriendRequestsRequest) (*friendspb.ListPendingFriendRequestsResponse, error) {
+	requests, err := s.service.ListPendingFriendRequests(ctx, req.UserId)
 	if err != nil {
 		return nil, mapError(err)
 	}
-	return mapFriendResponse(friend), nil
-}
 
-func (s *Server) DeleteFriend(ctx context.Context, req *friendspb.DeleteFriendRequest) (*friendspb.DeleteFriendResponse, error) {
-	if err := s.service.Delete(ctx, req.GetOwnerId(), req.GetId()); err != nil {
-		return nil, mapError(err)
+	response := &friendspb.ListPendingFriendRequestsResponse{Requests: make([]*friendspb.FriendRequestResponse, 0, len(requests))}
+	for _, request := range requests {
+		response.Requests = append(response.Requests, mapFriendRequestResponse(request))
 	}
-	return &friendspb.DeleteFriendResponse{Deleted: true}, nil
+	return response, nil
 }
 
 func mapFriendResponse(friend domain.Friend) *friendspb.FriendResponse {
 	return &friendspb.FriendResponse{
 		Id:        friend.ID,
-		OwnerId:   friend.OwnerID,
-		Username:  friend.Username,
-		Name:      friend.Name,
+		UserId:    friend.UserID,
+		FriendId:  friend.FriendID,
 		CreatedAt: friend.CreatedAt.UTC().Format(timeRFC3339),
-		UpdatedAt: friend.UpdatedAt.UTC().Format(timeRFC3339),
+	}
+}
+
+func mapFriendRequestResponse(request domain.FriendRequest) *friendspb.FriendRequestResponse {
+	return &friendspb.FriendRequestResponse{
+		Id:         request.ID,
+		SenderId:   request.SenderID,
+		ReceiverId: request.ReceiverID,
+		CreatedAt:  request.CreatedAt.UTC().Format(timeRFC3339),
 	}
 }
 
 func mapError(err error) error {
 	switch {
-	case errors.Is(err, domain.ErrInvalidOwnerID), errors.Is(err, domain.ErrInvalidUsername):
+	case errors.Is(err, domain.ErrInvalidActorID),
+		errors.Is(err, domain.ErrInvalidReceiverID),
+		errors.Is(err, domain.ErrInvalidFriendID),
+		errors.Is(err, domain.ErrInvalidRequestID),
+		errors.Is(err, domain.ErrCannotSendRequestToYourself):
 		return status.Error(codes.InvalidArgument, err.Error())
-	case errors.Is(err, domain.ErrFriendNotFound):
+	case errors.Is(err, domain.ErrAlreadyFriends), errors.Is(err, domain.ErrFriendRequestAlreadyExists):
+		return status.Error(codes.AlreadyExists, err.Error())
+	case errors.Is(err, domain.ErrFriendRequestNotFound), errors.Is(err, domain.ErrFriendNotFound):
 		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, domain.ErrUnauthorizedFriendRequest):
+		return status.Error(codes.PermissionDenied, err.Error())
 	default:
 		return status.Error(codes.Internal, fmt.Sprintf("internal error: %v", err))
 	}

@@ -1,32 +1,32 @@
-@friendId = 1
+@receiverId = user-id-2
+@requestId = request-id
+@friendId = friend-user-id
 
-### Create friend
-POST {{base_url}}/friends
+### Send friend request
+POST {{base_url}}/friends/requests
 Authorization: Bearer {{auth_token}}
 Content-Type: application/json
 
 {
-  "username": "john_doe",
-  "name": "John"
+  "receiverId": "{{receiverId}}"
 }
 
 ### List friends
 GET {{base_url}}/friends
 Authorization: Bearer {{auth_token}}
 
-### Get friend by ID
-GET {{base_url}}/friends/{{friendId}}
+### List pending friend requests
+GET {{base_url}}/friends/requests/pending
 Authorization: Bearer {{auth_token}}
 
-### Update friend
-PUT {{base_url}}/friends/{{friendId}}
+### Accept friend request
+POST {{base_url}}/friends/requests/{{requestId}}/accept
 Authorization: Bearer {{auth_token}}
-Content-Type: application/json
 
-{
-  "name": "John Doe"
-}
+### Decline friend request
+DELETE {{base_url}}/friends/requests/{{requestId}}/decline
+Authorization: Bearer {{auth_token}}
 
-### Delete friend
+### Remove friend
 DELETE {{base_url}}/friends/{{friendId}}
 Authorization: Bearer {{auth_token}}

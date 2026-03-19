@@ -18,90 +18,108 @@ func New(service *friends.Service) *Handler {
 	return &Handler{service: service}
 }
 
-func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
-	ownerID, ok := r.Context().Value(middleware.UserIDKey).(string)
-	if !ok || ownerID == "" {
+func (h *Handler) SendFriendRequest(w http.ResponseWriter, r *http.Request) {
+	actorID, ok := actorIDFromContext(r)
+	if !ok {
 		writeJSONError(w, http.StatusUnauthorized, "unauthorized")
 		return
 	}
 
-	var req friends.CreateFriendRequest
+	var req friends.SendFriendRequestRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeJSONError(w, http.StatusBadRequest, "invalid payload")
 		return
 	}
 
-	friend, err := h.service.Create(r.Context(), ownerID, req)
+	friendRequest, err := h.service.SendFriendRequest(r.Context(), actorID, req)
 	if err != nil {
 		handleGrpcError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusCreated, friend)
+
+	writeJSON(w, http.StatusCreated, friendRequest)
 }
 
-func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
-	ownerID, ok := r.Context().Value(middleware.UserIDKey).(string)
-	if !ok || ownerID == "" {
+func (h *Handler) AcceptFriendRequest(w http.ResponseWriter, r *http.Request) {
+	actorID, ok := actorIDFromContext(r)
+	if !ok {
 		writeJSONError(w, http.StatusUnauthorized, "unauthorized")
 		return
 	}
 
-	friends, err := h.service.List(r.Context(), ownerID)
-	if err != nil {
+	if err := h.service.AcceptFriendRequest(r.Context(), actorID, r.PathValue("id")); err != nil {
 		handleGrpcError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, friends)
+
+	writeJSON(w, http.StatusOK, map[string]bool{"accepted": true})
 }
 
-func (h *Handler) GetByID(w http.ResponseWriter, r *http.Request) {
-	ownerID, ok := r.Context().Value(middleware.UserIDKey).(string)
-	if !ok || ownerID == "" {
+func (h *Handler) DeclineFriendRequest(w http.ResponseWriter, r *http.Request) {
+	actorID, ok := actorIDFromContext(r)
+	if !ok {
 		writeJSONError(w, http.StatusUnauthorized, "unauthorized")
 		return
 	}
 
-	friend, err := h.service.GetByID(r.Context(), ownerID, r.PathValue("id"))
-	if err != nil {
+	if err := h.service.DeclineFriendRequest(r.Context(), actorID, r.PathValue("id")); err != nil {
 		handleGrpcError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, friend)
-}
 
-func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
-	ownerID, ok := r.Context().Value(middleware.UserIDKey).(string)
-	if !ok || ownerID == "" {
-		writeJSONError(w, http.StatusUnauthorized, "unauthorized")
-		return
-	}
-
-	var req friends.UpdateFriendRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeJSONError(w, http.StatusBadRequest, "invalid payload")
-		return
-	}
-
-	friend, err := h.service.Update(r.Context(), ownerID, r.PathValue("id"), req)
-	if err != nil {
-		handleGrpcError(w, err)
-		return
-	}
-	writeJSON(w, http.StatusOK, friend)
-}
-
-func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
-	ownerID, ok := r.Context().Value(middleware.UserIDKey).(string)
-	if !ok || ownerID == "" {
-		writeJSONError(w, http.StatusUnauthorized, "unauthorized")
-		return
-	}
-
-	if err := h.service.Delete(r.Context(), ownerID, r.PathValue("id")); err != nil {
-		handleGrpcError(w, err)
-		return
-	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *Handler) RemoveFriend(w http.ResponseWriter, r *http.Request) {
+	actorID, ok := actorIDFromContext(r)
+	if !ok {
+		writeJSONError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	if err := h.service.RemoveFriend(r.Context(), actorID, r.PathValue("friendId")); err != nil {
+		handleGrpcError(w, err)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *Handler) ListFriends(w http.ResponseWriter, r *http.Request) {
+	actorID, ok := actorIDFromContext(r)
+	if !ok {
+		writeJSONError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	friendsList, err := h.service.ListFriends(r.Context(), actorID)
+	if err != nil {
+		handleGrpcError(w, err)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, friendsList)
+}
+
+func (h *Handler) ListPendingFriendRequests(w http.ResponseWriter, r *http.Request) {
+	actorID, ok := actorIDFromContext(r)
+	if !ok {
+		writeJSONError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	requests, err := h.service.ListPendingFriendRequests(r.Context(), actorID)
+	if err != nil {
+		handleGrpcError(w, err)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, requests)
+}
+
+func actorIDFromContext(r *http.Request) (string, bool) {
+	actorID, ok := r.Context().Value(middleware.UserIDKey).(string)
+	return actorID, ok && actorID != ""
 }
 
 func handleGrpcError(w http.ResponseWriter, err error) {
@@ -116,6 +134,10 @@ func handleGrpcError(w http.ResponseWriter, err error) {
 		writeJSONError(w, http.StatusBadRequest, st.Message())
 	case codes.NotFound:
 		writeJSONError(w, http.StatusNotFound, st.Message())
+	case codes.AlreadyExists:
+		writeJSONError(w, http.StatusConflict, st.Message())
+	case codes.PermissionDenied:
+		writeJSONError(w, http.StatusForbidden, st.Message())
 	default:
 		writeJSONError(w, http.StatusInternalServerError, "internal server error")
 	}

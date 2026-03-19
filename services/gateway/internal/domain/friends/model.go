@@ -2,19 +2,18 @@ package friends
 
 type Friend struct {
 	ID        string `json:"id"`
-	OwnerID   string `json:"ownerId"`
-	Username  string `json:"username"`
-	Name      string `json:"name"`
+	UserID    string `json:"userId"`
+	FriendID  string `json:"friendId"`
 	CreatedAt string `json:"createdAt"`
-	UpdatedAt string `json:"updatedAt"`
 }
 
-type CreateFriendRequest struct {
-	Username string `json:"username"`
-	Name     string `json:"name"`
+type FriendRequest struct {
+	ID         string `json:"id"`
+	SenderID   string `json:"senderId"`
+	ReceiverID string `json:"receiverId"`
+	CreatedAt  string `json:"createdAt"`
 }
 
-type UpdateFriendRequest struct {
-	Username string `json:"username"`
-	Name     string `json:"name"`
+type SendFriendRequestRequest struct {
+	ReceiverID string `json:"receiverId"`
 }

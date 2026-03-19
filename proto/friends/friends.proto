@@ -5,53 +5,64 @@ package friends;
 option go_package = "github.com/Miguel-Pezzini/GoMessenger/pkg/contracts/friendspb;friendspb";
 
 service FriendsService {
-  rpc CreateFriend (CreateFriendRequest) returns (FriendResponse);
-  rpc GetFriend (GetFriendRequest) returns (FriendResponse);
+  rpc SendFriendRequest (SendFriendRequestRequest) returns (FriendRequestResponse);
+  rpc AcceptFriendRequest (AcceptFriendRequestRequest) returns (ActionResponse);
+  rpc DeclineFriendRequest (DeclineFriendRequestRequest) returns (ActionResponse);
+  rpc RemoveFriend (RemoveFriendRequest) returns (ActionResponse);
   rpc ListFriends (ListFriendsRequest) returns (ListFriendsResponse);
-  rpc UpdateFriend (UpdateFriendRequest) returns (FriendResponse);
-  rpc DeleteFriend (DeleteFriendRequest) returns (DeleteFriendResponse);
+  rpc ListPendingFriendRequests (ListPendingFriendRequestsRequest) returns (ListPendingFriendRequestsResponse);
 }
 
-message CreateFriendRequest {
-  string owner_id = 1;
-  string username = 2;
-  string name = 3;
+message SendFriendRequestRequest {
+  string sender_id = 1;
+  string receiver_id = 2;
 }
 
-message GetFriendRequest {
-  string owner_id = 1;
-  string id = 2;
+message AcceptFriendRequestRequest {
+  string actor_id = 1;
+  string request_id = 2;
+}
+
+message DeclineFriendRequestRequest {
+  string actor_id = 1;
+  string request_id = 2;
+}
+
+message RemoveFriendRequest {
+  string actor_id = 1;
+  string friend_id = 2;
 }
 
 message ListFriendsRequest {
-  string owner_id = 1;
-}
-
-message UpdateFriendRequest {
-  string owner_id = 1;
-  string id = 2;
-  string username = 3;
-  string name = 4;
-}
-
-message DeleteFriendRequest {
-  string owner_id = 1;
-  string id = 2;
+  string user_id = 1;
 }
 
 message FriendResponse {
   string id = 1;
-  string owner_id = 2;
-  string username = 3;
-  string name = 4;
-  string created_at = 5;
-  string updated_at = 6;
+  string user_id = 2;
+  string friend_id = 3;
+  string created_at = 4;
+}
+
+message FriendRequestResponse {
+  string id = 1;
+  string sender_id = 2;
+  string receiver_id = 3;
+  string created_at = 4;
 }
 
 message ListFriendsResponse {
   repeated FriendResponse friends = 1;
 }
 
-message DeleteFriendResponse {
-  bool deleted = 1;
+message ListPendingFriendRequestsRequest {
+  string user_id = 1;
+}
+
+message ListPendingFriendRequestsResponse {
+  repeated FriendRequestResponse requests = 1;
+}
+
+message ActionResponse {
+  bool success = 1;
 }

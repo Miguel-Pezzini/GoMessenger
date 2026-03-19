@@ -1,11 +1,19 @@
 package domain
 
-import "context"
+import (
+	"context"
+	"time"
+)
 
 type Repository interface {
-	Create(ctx context.Context, friend Friend) (Friend, error)
-	GetByID(ctx context.Context, ownerID, id string) (Friend, error)
-	ListByOwner(ctx context.Context, ownerID string) ([]Friend, error)
-	Update(ctx context.Context, ownerID, id string, friend Friend) (Friend, error)
-	Delete(ctx context.Context, ownerID, id string) error
+	CreateFriendRequest(ctx context.Context, request FriendRequest) (FriendRequest, error)
+	GetFriendRequestByID(ctx context.Context, requestID string) (FriendRequest, error)
+	ListPendingFriendRequests(ctx context.Context, receiverID string) ([]FriendRequest, error)
+	DeleteFriendRequestByID(ctx context.Context, requestID string) error
+	FriendRequestExistsBetween(ctx context.Context, firstUserID, secondUserID string) (bool, error)
+	FriendshipExists(ctx context.Context, userID, friendID string) (bool, error)
+	CreateFriendships(ctx context.Context, firstUserID, secondUserID string, createdAt time.Time) error
+	DeleteFriendships(ctx context.Context, firstUserID, secondUserID string) error
+	ListFriends(ctx context.Context, userID string) ([]Friend, error)
+	RunInTransaction(ctx context.Context, fn func(txCtx context.Context) error) error
 }

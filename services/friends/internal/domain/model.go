@@ -8,18 +8,28 @@ import (
 
 type Friend struct {
 	ID        string
-	OwnerID   string
-	Username  string
-	Name      string
+	UserID    string
+	FriendID  string
 	CreatedAt time.Time
-	UpdatedAt time.Time
+}
+
+type FriendRequest struct {
+	ID         string
+	SenderID   string
+	ReceiverID string
+	CreatedAt  time.Time
 }
 
 type FriendMongo struct {
 	ID        primitive.ObjectID `bson:"_id,omitempty"`
-	OwnerID   string             `bson:"owner_id"`
-	Username  string             `bson:"username"`
-	Name      string             `bson:"name"`
+	UserID    string             `bson:"user_id"`
+	FriendID  string             `bson:"friend_id"`
 	CreatedAt time.Time          `bson:"created_at"`
-	UpdatedAt time.Time          `bson:"updated_at"`
+}
+
+type FriendRequestMongo struct {
+	ID         primitive.ObjectID `bson:"_id,omitempty"`
+	SenderID   string             `bson:"sender_id"`
+	ReceiverID string             `bson:"receiver_id"`
+	CreatedAt  time.Time          `bson:"created_at"`
 }

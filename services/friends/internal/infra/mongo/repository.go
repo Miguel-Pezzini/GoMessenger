@@ -2,9 +2,9 @@ package mongo
 
 import (
 	"context"
+	"time"
 
 	"github.com/Miguel-Pezzini/GoMessenger/services/friends/internal/domain"
-
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -12,49 +12,180 @@ import (
 )
 
 type Repository struct {
-	collection *mongo.Collection
+	client             *mongo.Client
+	friendsCollection  *mongo.Collection
+	requestsCollection *mongo.Collection
 }
 
-func NewRepository(db *mongo.Database) *Repository {
-	return &Repository{collection: db.Collection("friends")}
-}
-
-func (r *Repository) Create(ctx context.Context, friend domain.Friend) (domain.Friend, error) {
-	doc := domain.FriendMongo{
-		OwnerID:   friend.OwnerID,
-		Username:  friend.Username,
-		Name:      friend.Name,
-		CreatedAt: friend.CreatedAt,
-		UpdatedAt: friend.UpdatedAt,
+func NewRepository(db *mongo.Database) (*Repository, error) {
+	repo := &Repository{
+		client:             db.Client(),
+		friendsCollection:  db.Collection("friends"),
+		requestsCollection: db.Collection("friend_requests"),
 	}
 
-	result, err := r.collection.InsertOne(ctx, doc)
+	if err := repo.ensureIndexes(context.Background()); err != nil {
+		return nil, err
+	}
+
+	return repo, nil
+}
+
+func (r *Repository) ensureIndexes(ctx context.Context) error {
+	friendIndexes := []mongo.IndexModel{
+		{
+			Keys:    bson.D{{Key: "user_id", Value: 1}, {Key: "friend_id", Value: 1}},
+			Options: options.Index().SetUnique(true),
+		},
+		{
+			Keys: bson.D{{Key: "user_id", Value: 1}, {Key: "created_at", Value: -1}},
+		},
+	}
+
+	requestIndexes := []mongo.IndexModel{
+		{
+			Keys:    bson.D{{Key: "sender_id", Value: 1}, {Key: "receiver_id", Value: 1}},
+			Options: options.Index().SetUnique(true),
+		},
+		{
+			Keys: bson.D{{Key: "receiver_id", Value: 1}, {Key: "created_at", Value: -1}},
+		},
+	}
+
+	if _, err := r.friendsCollection.Indexes().CreateMany(ctx, friendIndexes); err != nil {
+		return err
+	}
+	if _, err := r.requestsCollection.Indexes().CreateMany(ctx, requestIndexes); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (r *Repository) CreateFriendRequest(ctx context.Context, request domain.FriendRequest) (domain.FriendRequest, error) {
+	doc := domain.FriendRequestMongo{
+		SenderID:   request.SenderID,
+		ReceiverID: request.ReceiverID,
+		CreatedAt:  request.CreatedAt,
+	}
+
+	result, err := r.requestsCollection.InsertOne(ctx, doc)
 	if err != nil {
-		return domain.Friend{}, err
+		return domain.FriendRequest{}, err
 	}
 
-	oid := result.InsertedID.(primitive.ObjectID)
-	friend.ID = oid.Hex()
-	return friend, nil
+	request.ID = result.InsertedID.(primitive.ObjectID).Hex()
+	return request, nil
 }
 
-func (r *Repository) GetByID(ctx context.Context, ownerID, id string) (domain.Friend, error) {
-	oid, err := primitive.ObjectIDFromHex(id)
+func (r *Repository) GetFriendRequestByID(ctx context.Context, requestID string) (domain.FriendRequest, error) {
+	oid, err := primitive.ObjectIDFromHex(requestID)
 	if err != nil {
-		return domain.Friend{}, mongo.ErrNoDocuments
+		return domain.FriendRequest{}, mongo.ErrNoDocuments
 	}
 
-	var doc domain.FriendMongo
-	err = r.collection.FindOne(ctx, bson.M{"_id": oid, "owner_id": ownerID}).Decode(&doc)
+	var doc domain.FriendRequestMongo
+	err = r.requestsCollection.FindOne(ctx, bson.M{"_id": oid}).Decode(&doc)
 	if err != nil {
-		return domain.Friend{}, err
+		return domain.FriendRequest{}, err
 	}
 
-	return mapFriendMongo(doc), nil
+	return mapFriendRequestMongo(doc), nil
 }
 
-func (r *Repository) ListByOwner(ctx context.Context, ownerID string) ([]domain.Friend, error) {
-	cursor, err := r.collection.Find(ctx, bson.M{"owner_id": ownerID})
+func (r *Repository) ListPendingFriendRequests(ctx context.Context, receiverID string) ([]domain.FriendRequest, error) {
+	opts := options.Find().SetSort(bson.D{{Key: "created_at", Value: -1}})
+	cursor, err := r.requestsCollection.Find(ctx, bson.M{"receiver_id": receiverID}, opts)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	result := make([]domain.FriendRequest, 0)
+	for cursor.Next(ctx) {
+		var doc domain.FriendRequestMongo
+		if err := cursor.Decode(&doc); err != nil {
+			return nil, err
+		}
+		result = append(result, mapFriendRequestMongo(doc))
+	}
+
+	if err := cursor.Err(); err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
+func (r *Repository) DeleteFriendRequestByID(ctx context.Context, requestID string) error {
+	oid, err := primitive.ObjectIDFromHex(requestID)
+	if err != nil {
+		return mongo.ErrNoDocuments
+	}
+
+	result, err := r.requestsCollection.DeleteOne(ctx, bson.M{"_id": oid})
+	if err != nil {
+		return err
+	}
+	if result.DeletedCount == 0 {
+		return mongo.ErrNoDocuments
+	}
+	return nil
+}
+
+func (r *Repository) FriendRequestExistsBetween(ctx context.Context, firstUserID, secondUserID string) (bool, error) {
+	filter := bson.M{
+		"$or": []bson.M{
+			{"sender_id": firstUserID, "receiver_id": secondUserID},
+			{"sender_id": secondUserID, "receiver_id": firstUserID},
+		},
+	}
+
+	count, err := r.requestsCollection.CountDocuments(ctx, filter)
+	return count > 0, err
+}
+
+func (r *Repository) FriendshipExists(ctx context.Context, userID, friendID string) (bool, error) {
+	count, err := r.friendsCollection.CountDocuments(ctx, bson.M{"user_id": userID, "friend_id": friendID})
+	return count > 0, err
+}
+
+func (r *Repository) CreateFriendships(ctx context.Context, firstUserID, secondUserID string, createdAt time.Time) error {
+	_, err := r.friendsCollection.InsertMany(ctx, []any{
+		domain.FriendMongo{
+			UserID:    firstUserID,
+			FriendID:  secondUserID,
+			CreatedAt: createdAt,
+		},
+		domain.FriendMongo{
+			UserID:    secondUserID,
+			FriendID:  firstUserID,
+			CreatedAt: createdAt,
+		},
+	})
+	return err
+}
+
+func (r *Repository) DeleteFriendships(ctx context.Context, firstUserID, secondUserID string) error {
+	filter := bson.M{
+		"$or": []bson.M{
+			{"user_id": firstUserID, "friend_id": secondUserID},
+			{"user_id": secondUserID, "friend_id": firstUserID},
+		},
+	}
+
+	result, err := r.friendsCollection.DeleteMany(ctx, filter)
+	if err != nil {
+		return err
+	}
+	if result.DeletedCount == 0 {
+		return mongo.ErrNoDocuments
+	}
+	return nil
+}
+
+func (r *Repository) ListFriends(ctx context.Context, userID string) ([]domain.Friend, error) {
+	opts := options.Find().SetSort(bson.D{{Key: "created_at", Value: -1}})
+	cursor, err := r.friendsCollection.Find(ctx, bson.M{"user_id": userID}, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -76,53 +207,33 @@ func (r *Repository) ListByOwner(ctx context.Context, ownerID string) ([]domain.
 	return result, nil
 }
 
-func (r *Repository) Update(ctx context.Context, ownerID, id string, friend domain.Friend) (domain.Friend, error) {
-	oid, err := primitive.ObjectIDFromHex(id)
-	if err != nil {
-		return domain.Friend{}, mongo.ErrNoDocuments
-	}
-
-	result := r.collection.FindOneAndUpdate(
-		ctx,
-		bson.M{"_id": oid, "owner_id": ownerID},
-		bson.M{"$set": bson.M{
-			"username":   friend.Username,
-			"name":       friend.Name,
-			"updated_at": friend.UpdatedAt,
-		}},
-		options.FindOneAndUpdate().SetReturnDocument(options.After),
-	)
-
-	var doc domain.FriendMongo
-	if err := result.Decode(&doc); err != nil {
-		return domain.Friend{}, err
-	}
-	return mapFriendMongo(doc), nil
-}
-
-func (r *Repository) Delete(ctx context.Context, ownerID, id string) error {
-	oid, err := primitive.ObjectIDFromHex(id)
-	if err != nil {
-		return mongo.ErrNoDocuments
-	}
-
-	res, err := r.collection.DeleteOne(ctx, bson.M{"_id": oid, "owner_id": ownerID})
+func (r *Repository) RunInTransaction(ctx context.Context, fn func(txCtx context.Context) error) error {
+	session, err := r.client.StartSession()
 	if err != nil {
 		return err
 	}
-	if res.DeletedCount == 0 {
-		return mongo.ErrNoDocuments
-	}
-	return nil
+	defer session.EndSession(ctx)
+
+	_, err = session.WithTransaction(ctx, func(sessCtx mongo.SessionContext) (interface{}, error) {
+		return nil, fn(sessCtx)
+	})
+	return err
 }
 
 func mapFriendMongo(doc domain.FriendMongo) domain.Friend {
 	return domain.Friend{
 		ID:        doc.ID.Hex(),
-		OwnerID:   doc.OwnerID,
-		Username:  doc.Username,
-		Name:      doc.Name,
+		UserID:    doc.UserID,
+		FriendID:  doc.FriendID,
 		CreatedAt: doc.CreatedAt,
-		UpdatedAt: doc.UpdatedAt,
+	}
+}
+
+func mapFriendRequestMongo(doc domain.FriendRequestMongo) domain.FriendRequest {
+	return domain.FriendRequest{
+		ID:         doc.ID.Hex(),
+		SenderID:   doc.SenderID,
+		ReceiverID: doc.ReceiverID,
+		CreatedAt:  doc.CreatedAt,
 	}
 }
