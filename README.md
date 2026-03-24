@@ -1,117 +1,210 @@
-# 💬 GoMessenger, a Real-Time Chat Backend in Go
+# GoMessenger
 
-The GoMessenger is a **real-time chat platform** built with **Go**, designed to explore advanced backend engineering concepts — including caching, messaging, rate limiting, observability, end-to-end testing, and NoSQL databases.
+Backend de chat em tempo real escrito em Go, organizado em serviços pequenos e integrados por HTTP/gRPC, Redis e MongoDB.
 
----
+Hoje o projeto já cobre:
 
-## 🚀 Technologies & Concepts
+- cadastro e login de usuários com JWT
+- conexão WebSocket autenticada via gateway
+- envio de mensagens entre dois usuários conectados
+- persistência das mensagens no MongoDB
+- uso de Redis Stream para ingestão e Redis Pub/Sub para fan-out
+- testes E2E básicos para autenticação e troca de mensagens por WebSocket
 
-| Category           | Technology / Concept                                     |
-| ------------------ | -------------------------------------------------------- |
-| Language           | Go (Golang)                                              |
-| Communication      | WebSocket (`gorilla/websocket` or `nhooyr.io/websocket`) |
-| Cache / Sessions   | Redis                                                    |
-| Messaging          | Redis Streams                                            |
-| Database           | MongoDB                                                  |
-| Observability      | Prometheus, Grafana                                      |
-| Authentication     | JWT                                                      |
-| End-to-End Testing | testcontainers-go + testify                              |
+## Estado Atual
 
----
+O fluxo implementado no repositório hoje é este:
 
-## Core Services
+1. O cliente chama o `gateway` em `POST /auth/register` ou `POST /auth/login`.
+2. O `gateway` encaminha a autenticação para o `auth_service` via gRPC.
+3. O `auth_service` cria ou valida o usuário no MongoDB e devolve um JWT.
+4. O cliente abre `ws://localhost:8080/ws?token=<jwt>`.
+5. O `gateway` valida o token e faz proxy da conexão para o `websocket_service`.
+6. O `websocket_service` recebe a mensagem e grava o payload em um Redis Stream.
+7. O `chat_service` consome o stream, persiste a mensagem no MongoDB e publica o resultado em Redis Pub/Sub.
+8. O `websocket_service` escuta o canal Pub/Sub e entrega a mensagem para remetente e destinatário conectados.
 
-### 🔹 **Gateway Service**
+## Serviços
 
-- Central entry point for all clients.
-- Manages WebSocket connections and session authentication (via JWT).
-- Applies **rate limiting** per user
-- Publishes messages to Redis Streams.
-- Forwards chat events received from the ChatService to connected users.
+### `gateway`
 
-### 🔹 **Authentication Service**
+- Porta: `8080`
+- Responsabilidades:
+  - expor as rotas HTTP de autenticação
+  - validar JWT para acesso ao WebSocket
+  - encaminhar `/ws` para o `websocket_service`
 
-- Handles user registration and login (via gRPC and REST).
-- Issues JWT tokens and manages sessions in Redis.
-- Persists user data in MongoDB.
+Rotas disponíveis:
 
-### 🔹 **Chat Service**
+- `POST /auth/register`
+- `POST /auth/login`
+- `GET /ws?token=<jwt>`
 
-- Consumes messages from the queue.
-- Persists messages in the NoSQL database (Mongo)
-- Publishes new message events through Redis Pub/Sub.
-- Ensures idempotent delivery.
+### `auth_service`
 
-### 🔹 **Presence Service** WIP
+- Porta: `50051` (gRPC)
+- Responsabilidades:
+  - registrar usuários
+  - autenticar usuários
+  - gerar JWT com claim `userId`
+- Banco usado:
+  - MongoDB em `mongodb://localhost:27019`, database `userdb`
 
-- Tracks real-time user presence (online/offline, current chat ID) with redis.
-- Stores connection state in Redis.
-- Publishes status changes to interested services (e.g., NotificationService).
+### `websocket_service`
 
-### 🔹 **Notification Service** WIP
+- Porta: `8081`
+- Responsabilidades:
+  - aceitar conexões WebSocket proxied pelo gateway
+  - receber mensagens do cliente
+  - publicar mensagens no Redis Stream
+  - escutar Redis Pub/Sub e reenviar para os clientes conectados
 
-- Subscribes to chat and presence events.
-- Decides whether to send notifications based on user preferences and active status.
-- Handles asynchronous notification delivery (push, email, or simulated logs).
-  
----
+Formato da mensagem enviada pelo cliente:
 
-## Message Flow
-
-1. User connects via WebSocket → Authenticated through JWT (AuthService).
-2. Gateway stores session in Redis and registers presence.
-3. User sends a message → Gateway publishes to Redis Stream (`chat.message.created`).
-4. ChatService consumes, persists message in MongoDB, and publish via Redis Pub/Sub.
-5. PresenceService updates user activity and publishes online/offline changes.
-6. NotificationService receives events and sends external notifications if recipient is offline or inactive.
-7. Observability stack (Prometheus + Grafana) tracks latency, throughput, and errors across services.
-
-
-### Prerequisites
-
-- Go 1.23+
-- Docker & Docker Compose
-
-### Commands
-
-```bash
-# Clone the repository
-git clone https://github.com/Miguel-Pezzini/GoMessenger.git
-
-# Start dependencies
-docker-compose up -d
-
-cd services
-
-# Run the gateway service
-go run ./gateway/cmd
-
-# Run other services
-go run ./chat_service/cmd
-go run ./auth_service/cmd
+```json
+{
+  "type": "chat_message",
+  "payload": {
+    "sender_id": "user-a",
+    "receiver_id": "user-b",
+    "content": "ola"
+  }
+}
 ```
 
----
+### `chat_service`
 
-## Key Learning Outcomes
+- Não expõe API HTTP no estado atual
+- Responsabilidades:
+  - consumir mensagens do Redis Stream
+  - persistir no MongoDB
+  - publicar o resultado em Redis Pub/Sub
+- Banco usado:
+  - MongoDB em `mongodb://localhost:27018`, database `chatdb`
 
-✅ Real-time communication with WebSocket
-✅ Distributed cache and Pub/Sub (Redis)
-✅ Asynchronous messaging (Redis Streams/RabbitMQ/NATS/SQS)
-WIP: Rate limiting and connection control
-WIP: Full observability (logs, metrics, tracing)
-WIP: End-to-end integration testing 
-✅ Event-driven microservice architecture
+### `presence_service`
 
----
+Existe apenas como estrutura inicial e ainda não faz parte do fluxo principal.
 
-## Author
+Hoje ele:
 
-**Miguel P.**
-Backend developer focused on performance, scalability, and distributed systems using Go.
+- tem `go.mod` próprio
+- possui código inicial de conexão com Redis
+- não está integrado ao `go.work`
+- não está sendo iniciado por `run.go`
+- não está concluído e não deve ser tratado como funcional
 
----
+## Estrutura
 
-## License
+```text
+.
+├── services/
+│   ├── auth_service/
+│   ├── chat_service/
+│   ├── gateway/
+│   ├── presence_service/
+│   └── websocket_service/
+├── proto/
+├── tests_e2e/
+├── docker-compose.yml
+└── run.go
+```
 
-This project is licensed under the MIT License — feel free to study, adapt, and improve it.
+## Requisitos
+
+- Go `1.25.1`
+- Docker
+- Docker Compose
+
+## Dependências Locais
+
+Suba Redis e os dois MongoDBs:
+
+```bash
+docker-compose up -d
+```
+
+Containers esperados:
+
+- `redis` em `localhost:6379`
+- `mongo_chat` em `localhost:27018`
+- `mongo_user` em `localhost:27019`
+
+## Variáveis de Ambiente
+
+Para o fluxo de mensagens funcionar, defina:
+
+```bash
+export REDIS_STREAM_CHAT=chat.message.created
+export REDIS_CHANNEL_CHAT=chat.message.persisted
+```
+
+Opcional:
+
+```bash
+export REDIS_URL=localhost:6379
+```
+
+Observações:
+
+- `auth_service` e `chat_service` usam hosts fixos para MongoDB no código atual.
+- `gateway` usa `localhost:50051` para gRPC e `http://localhost:8081` para o WebSocket service.
+- o `presence_service` lê `REDIS_CHANNEL_PRESENCE`, mas ainda não está finalizado.
+
+## Como Rodar
+
+### Opção 1: iniciar tudo que já participa do fluxo principal
+
+```bash
+go run run.go
+```
+
+O `run.go` sobe:
+
+- `auth_service`
+- `chat_service`
+- `gateway`
+- `websocket_service`
+
+### Opção 2: iniciar manualmente
+
+Em terminais separados:
+
+```bash
+go run ./services/auth_service/cmd
+go run ./services/chat_service/cmd
+go run ./services/websocket_service/cmd
+go run ./services/gateway/cmd
+```
+
+## Testes
+
+Os testes E2E ficam em [`tests_e2e`](/home/user/GoMessenger/tests_e2e).
+
+Cobertura atual:
+
+- registro de usuário
+- login via fallback quando o usuário já existe
+- troca de mensagem entre dois usuários conectados por WebSocket
+
+Para rodar:
+
+```bash
+cd tests_e2e
+go test ./...
+```
+
+Os testes dependem dos serviços estarem ativos localmente.
+
+## Limitações Conhecidas
+
+- `presence_service` está incompleto
+- o README antigo citava observabilidade, rate limiting e notification service, mas isso não está implementado neste repositório hoje
+- o `chat_service` funciona como worker e não expõe endpoint HTTP, apesar de o nome do método `Start` sugerir servidor
+- há configuração hardcoded em vários pontos
+- o JWT usa chave fixa em código
+- o WebSocket recebe `sender_id` no payload do cliente, sem sobrescrever pelo usuário autenticado
+
+## Próximos Passos
+
+O backlog sugerido está em [`TODO.md`](/home/user/GoMessenger/TODO.md).
