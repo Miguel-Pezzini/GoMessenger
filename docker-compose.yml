@@ -1,43 +1,4 @@
 services:
-  # gateway:
-  #   build: ./gateway
-  #   container_name: gateway
-  #   ports:
-  #     - "8080:8080"
-  #   depends_on:
-  #     - auth_service
-  #     - redis
-  #   environment:
-  #     - REDIS_URL=redis:6379
-  #   networks:
-  #     - chatnet
-
-  # chat-service:
-  #   build: ./chat_service
-  #   container_name: chat_service
-  #   depends_on:
-  #     - redis
-  #     - mongo-chat
-  #   environment:
-  #     - REDIS_URL=redis:6379
-  #     - MONGO_URL=mongodb://mongo-chat:27017/chatdb
-  #   networks:
-  #     - chatnet
-
-  # auth_service:
-  #   build: ./auth_service
-  #   container_name: auth_service
-  #   ports:
-  #     - "50051:50051"
-  #   depends_on:
-  #     - redis
-  #     - mongo-user
-  #   environment:
-  #     - REDIS_URL=redis:6379
-  #     - MONGO_URL=mongodb://mongo-user:27017/userdb
-  #   networks:
-  #     - chatnet
-
   redis:
     image: redis:7-alpine
     container_name: redis
@@ -60,9 +21,15 @@ services:
     volumes:
       - mongo_user_data:/data/db
 
+  mongo-friends:
+    image: mongo:7
+    container_name: mongo_friends
+    ports:
+      - "27020:27017"
+    volumes:
+      - mongo_friends_data:/data/db
+
 volumes:
   mongo_chat_data:
   mongo_user_data:
-# networks:
-#   chatnet:
-#     driver: bridge
+  mongo_friends_data:

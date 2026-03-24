@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package auth;
 
-option go_package = "github.com/Miguel-Pezzini/GoMessenger/services/auth_service/proto;authpb";
+option go_package = "github.com/Miguel-Pezzini/GoMessenger/pkg/contracts/authpb;authpb";
 
 service AuthService {
   rpc Register (RegisterRequest) returns (RegisterResponse);

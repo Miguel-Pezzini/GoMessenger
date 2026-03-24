@@ -1,0 +1,68 @@
+syntax = "proto3";
+
+package friends;
+
+option go_package = "github.com/Miguel-Pezzini/GoMessenger/pkg/contracts/friendspb;friendspb";
+
+service FriendsService {
+  rpc SendFriendRequest (SendFriendRequestRequest) returns (FriendRequestResponse);
+  rpc AcceptFriendRequest (AcceptFriendRequestRequest) returns (ActionResponse);
+  rpc DeclineFriendRequest (DeclineFriendRequestRequest) returns (ActionResponse);
+  rpc RemoveFriend (RemoveFriendRequest) returns (ActionResponse);
+  rpc ListFriends (ListFriendsRequest) returns (ListFriendsResponse);
+  rpc ListPendingFriendRequests (ListPendingFriendRequestsRequest) returns (ListPendingFriendRequestsResponse);
+}
+
+message SendFriendRequestRequest {
+  string sender_id = 1;
+  string receiver_id = 2;
+}
+
+message AcceptFriendRequestRequest {
+  string actor_id = 1;
+  string request_id = 2;
+}
+
+message DeclineFriendRequestRequest {
+  string actor_id = 1;
+  string request_id = 2;
+}
+
+message RemoveFriendRequest {
+  string actor_id = 1;
+  string friend_id = 2;
+}
+
+message ListFriendsRequest {
+  string user_id = 1;
+}
+
+message FriendResponse {
+  string id = 1;
+  string user_id = 2;
+  string friend_id = 3;
+  string created_at = 4;
+}
+
+message FriendRequestResponse {
+  string id = 1;
+  string sender_id = 2;
+  string receiver_id = 3;
+  string created_at = 4;
+}
+
+message ListFriendsResponse {
+  repeated FriendResponse friends = 1;
+}
+
+message ListPendingFriendRequestsRequest {
+  string user_id = 1;
+}
+
+message ListPendingFriendRequestsResponse {
+  repeated FriendRequestResponse requests = 1;
+}
+
+message ActionResponse {
+  bool success = 1;
+}

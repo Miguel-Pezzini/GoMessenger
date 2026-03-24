@@ -3,7 +3,7 @@ package main
 import (
 	"log"
 
-	"github.com/Miguel-Pezzini/GoMessenger/services/gateway/internal/app"
+	"github.com/Miguel-Pezzini/GoMessenger/services/chat/internal/app"
 )
 
 func main() {

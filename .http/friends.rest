@@ -1,0 +1,32 @@
+@receiverId = user-id-2
+@requestId = request-id
+@friendId = friend-user-id
+
+### Send friend request
+POST {{base_url}}/friends/requests
+Authorization: Bearer {{auth_token}}
+Content-Type: application/json
+
+{
+  "receiverId": "{{receiverId}}"
+}
+
+### List friends
+GET {{base_url}}/friends
+Authorization: Bearer {{auth_token}}
+
+### List pending friend requests
+GET {{base_url}}/friends/requests/pending
+Authorization: Bearer {{auth_token}}
+
+### Accept friend request
+POST {{base_url}}/friends/requests/{{requestId}}/accept
+Authorization: Bearer {{auth_token}}
+
+### Decline friend request
+DELETE {{base_url}}/friends/requests/{{requestId}}/decline
+Authorization: Bearer {{auth_token}}
+
+### Remove friend
+DELETE {{base_url}}/friends/{{friendId}}
+Authorization: Bearer {{auth_token}}
