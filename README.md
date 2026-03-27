@@ -83,12 +83,13 @@ Message format sent by the client:
 {
   "type": "chat_message",
   "payload": {
-    "sender_id": "user-a",
     "receiver_id": "user-b",
     "content": "hello"
   }
 }
 ```
+
+The `websocket` service fills `sender_id` from the authenticated JWT identity. If a client sends `sender_id`, it must match the authenticated user or the message is rejected.
 
 ### `chat`
 

@@ -23,7 +23,13 @@ func (s *Service) SubscribeChatChannel(channelName string, handler func(string))
 	s.repo.Subscribe(channelName, handler)
 }
 
-func (s *Service) PersistMessage(msg ChatMessagePayload) error {
+func (s *Service) PersistMessage(authenticatedUserID string, msg ChatMessagePayload) error {
+	if msg.SenderID != "" && msg.SenderID != authenticatedUserID {
+		return ValidationError{Message: "sender_id does not match authenticated user"}
+	}
+
+	msg.SenderID = authenticatedUserID
+
 	payload, _ := json.Marshal(msg)
 
 	log.Println("Sending to stream", payload)

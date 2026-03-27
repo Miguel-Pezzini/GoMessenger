@@ -55,7 +55,6 @@ func TestWebsocketTwoUsersExchangeMessage(t *testing.T) {
 	defer conn2.Close()
 
 	expected := chatPayload{
-		SenderID:   senderID,
 		ReceiverID: receiverID,
 		Content:    "olaa do websocket",
 	}
@@ -68,6 +67,8 @@ func TestWebsocketTwoUsersExchangeMessage(t *testing.T) {
 	if err := conn1.WriteJSON(msg); err != nil {
 		t.Fatalf("failed to send ws message: %v", err)
 	}
+
+	expected.SenderID = senderID
 
 	gotFromSender := readMessageWithRetry(t, conn1)
 	gotFromReceiver := readMessageWithRetry(t, conn2)

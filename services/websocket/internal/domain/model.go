@@ -2,6 +2,14 @@ package domain
 
 import "encoding/json"
 
+type ValidationError struct {
+	Message string `json:"message"`
+}
+
+func (e ValidationError) Error() string {
+	return e.Message
+}
+
 type MessageResponse struct {
 	ID         string `json:"id"`
 	SenderID   string `json:"sender_id"`
@@ -21,6 +29,12 @@ type ChatMessagePayload struct {
 	Content    string `json:"content"`
 }
 
+type ErrorResponse struct {
+	Type  string          `json:"type"`
+	Error ValidationError `json:"error"`
+}
+
 const (
-	MessageTypeChat = "chat_message"
+	MessageTypeChat  = "chat_message"
+	MessageTypeError = "error"
 )

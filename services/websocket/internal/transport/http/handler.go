@@ -74,7 +74,16 @@ func (h *Handler) HandleConnection(w http.ResponseWriter, r *http.Request) {
 				log.Println("Erro ao parsear payload de chat:", err)
 				continue
 			}
-			h.service.PersistMessage(payload)
+			if err := h.service.PersistMessage(userID, payload); err != nil {
+				log.Println("Failed to persist message:", err)
+				if validationErr, ok := err.(domain.ValidationError); ok {
+					_ = conn.WriteJSON(domain.ErrorResponse{
+						Type:  domain.MessageTypeError,
+						Error: validationErr,
+					})
+				}
+				continue
+			}
 		}
 	}
 
