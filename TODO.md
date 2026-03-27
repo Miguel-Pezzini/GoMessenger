@@ -12,19 +12,7 @@ Backlog based on the current codebase state.
 - publish presence events to a dedicated Redis channel
 - register connect and disconnect events from the `websocket` service
 
-### 2. Protect the WebSocket flow with JWT identity
-
-- stop trusting the `sender_id` sent by the client
-- use the authenticated `userId` to fill the sender inside the `websocket` service
-- reject inconsistent payloads
-
-### 3. Externalize configuration
-
-- remove hardcoded addresses
-- standardize environment variables across all services
-- document defaults and `.env` examples
-
-### 4. Improve message processing reliability
+### 2. Improve message processing reliability
 
 - review Redis Stream consumption in the `chat` service
 - evaluate consumer groups instead of plain `XRead`

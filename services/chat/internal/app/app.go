@@ -41,7 +41,12 @@ func Run() error {
 		return err
 	}
 
-	service := domain.NewService(mongorepo.NewRepository(db))
+	repo, err := mongorepo.NewRepository(db)
+	if err != nil {
+		return err
+	}
+
+	service := domain.NewService(repo)
 	server := streamtransport.NewServer(cfg.Address, cfg.RedisStreamChat, cfg.RedisChannelChat, rdb, service)
 	return server.Start()
 }
