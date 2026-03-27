@@ -24,10 +24,10 @@ type Config struct {
 
 func LoadConfig() Config {
 	return Config{
-		Address:       config.String("AUTH_ADDR", ":50051"),
-		MongoURI:      config.String("AUTH_MONGO_URI", "mongodb://localhost:27019"),
-		MongoDatabase: config.String("AUTH_MONGO_DB", "userdb"),
-		JWTSecret:     config.String("JWT_SECRET", "secret-key"),
+		Address:       config.MustString("AUTH_ADDR"),
+		MongoURI:      config.MustString("AUTH_MONGO_URI"),
+		MongoDatabase: config.MustString("AUTH_MONGO_DB"),
+		JWTSecret:     config.MustString("JWT_SECRET"),
 		JWTExpiry:     24 * time.Hour,
 	}
 }

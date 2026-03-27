@@ -21,9 +21,9 @@ type Config struct {
 
 func LoadConfig() Config {
 	return Config{
-		Address:       config.String("FRIENDS_ADDR", ":50052"),
-		MongoURI:      config.String("FRIENDS_MONGO_URI", "mongodb://localhost:27020"),
-		MongoDatabase: config.String("FRIENDS_MONGO_DB", "friends_db"),
+		Address:       config.MustString("FRIENDS_ADDR"),
+		MongoURI:      config.MustString("FRIENDS_MONGO_URI"),
+		MongoDatabase: config.MustString("FRIENDS_MONGO_DB"),
 	}
 }
 

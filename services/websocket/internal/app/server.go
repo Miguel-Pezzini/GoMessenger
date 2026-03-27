@@ -25,10 +25,10 @@ type Config struct {
 
 func LoadConfig() Config {
 	return Config{
-		Address:     config.String("WEBSOCKET_ADDR", ":8081"),
-		RedisAddr:   config.String("REDIS_ADDR", "localhost:6379"),
-		StreamName:  config.String("REDIS_STREAM_CHAT", "chat.message.created"),
-		ChannelName: config.String("REDIS_CHANNEL_CHAT", "chat.message.persisted"),
+		Address:     config.MustString("WEBSOCKET_ADDR"),
+		RedisAddr:   config.MustString("REDIS_ADDR"),
+		StreamName:  config.MustString("REDIS_STREAM_CHAT"),
+		ChannelName: config.MustString("REDIS_CHANNEL_CHAT"),
 	}
 }
 

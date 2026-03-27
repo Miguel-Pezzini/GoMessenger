@@ -26,12 +26,12 @@ type Config struct {
 
 func LoadConfig() Config {
 	return Config{
-		Address:        config.String("GATEWAY_ADDR", ":8080"),
-		AuthAddress:    config.String("AUTH_GRPC_ADDR", "localhost:50051"),
-		FriendsAddress: config.String("FRIENDS_GRPC_ADDR", "localhost:50052"),
-		WebsocketURL:   config.String("WEBSOCKET_UPSTREAM_URL", "http://localhost:8081"),
-		AllowedOrigin:  config.String("GATEWAY_ALLOWED_ORIGIN", "http://localhost:5173"),
-		JWTSecret:      config.String("JWT_SECRET", "secret-key"),
+		Address:        config.MustString("GATEWAY_ADDR"),
+		AuthAddress:    config.MustString("AUTH_GRPC_ADDR"),
+		FriendsAddress: config.MustString("FRIENDS_GRPC_ADDR"),
+		WebsocketURL:   config.MustString("WEBSOCKET_UPSTREAM_URL"),
+		AllowedOrigin:  config.MustString("GATEWAY_ALLOWED_ORIGIN"),
+		JWTSecret:      config.MustString("JWT_SECRET"),
 	}
 }
 

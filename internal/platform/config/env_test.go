@@ -17,3 +17,23 @@ func TestStringReturnsEnvironmentValue(t *testing.T) {
 		t.Fatalf("expected env value, got %q", got)
 	}
 }
+
+func TestMustStringReturnsEnvironmentValue(t *testing.T) {
+	t.Setenv("CONFIG_TEST_REQUIRED", "value")
+
+	if got := MustString("CONFIG_TEST_REQUIRED"); got != "value" {
+		t.Fatalf("expected env value, got %q", got)
+	}
+}
+
+func TestMustStringPanicsWhenUnset(t *testing.T) {
+	t.Setenv("CONFIG_TEST_REQUIRED_MISSING", "")
+
+	defer func() {
+		if recover() == nil {
+			t.Fatal("expected panic for missing environment variable")
+		}
+	}()
+
+	_ = MustString("CONFIG_TEST_REQUIRED_MISSING")
+}

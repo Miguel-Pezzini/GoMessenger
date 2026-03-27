@@ -20,12 +20,12 @@ type Config struct {
 
 func LoadConfig() Config {
 	return Config{
-		Address:          config.String("CHAT_ADDR", ":8081"),
-		MongoURI:         config.String("CHAT_MONGO_URI", "mongodb://localhost:27018"),
-		MongoDatabase:    config.String("CHAT_MONGO_DB", "chatdb"),
-		RedisAddr:        config.String("REDIS_ADDR", "localhost:6379"),
-		RedisStreamChat:  config.String("REDIS_STREAM_CHAT", "chat.message.created"),
-		RedisChannelChat: config.String("REDIS_CHANNEL_CHAT", "chat.message.persisted"),
+		Address:          config.MustString("CHAT_ADDR"),
+		MongoURI:         config.MustString("CHAT_MONGO_URI"),
+		MongoDatabase:    config.MustString("CHAT_MONGO_DB"),
+		RedisAddr:        config.MustString("REDIS_ADDR"),
+		RedisStreamChat:  config.MustString("REDIS_STREAM_CHAT"),
+		RedisChannelChat: config.MustString("REDIS_CHANNEL_CHAT"),
 	}
 }
 
