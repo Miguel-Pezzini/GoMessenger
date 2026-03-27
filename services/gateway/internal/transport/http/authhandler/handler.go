@@ -6,6 +6,7 @@ import (
 
 	authpb "github.com/Miguel-Pezzini/GoMessenger/pkg/contracts/authpb"
 	"github.com/Miguel-Pezzini/GoMessenger/services/gateway/internal/domain/auth"
+	"github.com/Miguel-Pezzini/GoMessenger/services/gateway/internal/transport/http/response"
 )
 
 type Handler struct {
@@ -31,31 +32,32 @@ type AuthResponse struct {
 }
 
 func (h *Handler) LoginHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
 	var req authpb.LoginRequest
-	_ = json.NewDecoder(r.Body).Decode(&req)
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.WriteJSONError(w, http.StatusBadRequest, "invalid payload")
+		return
+	}
 
 	token, err := h.service.Authenticate(r.Context(), &req)
 	if err != nil {
-		http.Error(w, `{"error":"Invalid credentials"}`, http.StatusUnauthorized)
+		response.HandleGRPCError(w, err)
 		return
 	}
-	json.NewEncoder(w).Encode(AuthResponse{Token: token})
+	response.WriteJSON(w, http.StatusOK, AuthResponse{Token: token})
 }
 
 func (h *Handler) RegisterHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
 	var req authpb.RegisterRequest
-	_ = json.NewDecoder(r.Body).Decode(&req)
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.WriteJSONError(w, http.StatusBadRequest, "invalid payload")
+		return
+	}
 
 	token, err := h.service.Register(r.Context(), &req)
-	switch {
-	case err == auth.ErrUserAlredyExists:
-		http.Error(w, `{"error":"User already exists"}`, http.StatusForbidden)
-	case err != nil:
-		http.Error(w, `{"error":"Internal server error"}`, http.StatusInternalServerError)
-	default:
-		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(AuthResponse{Token: token})
+	if err != nil {
+		response.HandleGRPCError(w, err)
+		return
 	}
+
+	response.WriteJSON(w, http.StatusCreated, AuthResponse{Token: token})
 }

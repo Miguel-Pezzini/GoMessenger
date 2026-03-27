@@ -2,6 +2,7 @@ package mongo
 
 import (
 	"context"
+	"errors"
 
 	authpb "github.com/Miguel-Pezzini/GoMessenger/pkg/contracts/authpb"
 	"github.com/Miguel-Pezzini/GoMessenger/services/auth/internal/domain"
@@ -28,6 +29,9 @@ func (r *Repository) Create(ctx context.Context, registerUserRequest *authpb.Reg
 
 	result, err := r.collection.InsertOne(ctx, userMongo)
 	if err != nil {
+		if mongo.IsDuplicateKeyError(err) {
+			return nil, domain.ErrUserAlreadyExists
+		}
 		return nil, err
 	}
 
@@ -48,6 +52,9 @@ func (r *Repository) FindByUsername(ctx context.Context, username string) (*doma
 	var userMongo domain.UserMongo
 	err := r.collection.FindOne(ctx, bson.M{"username": username}).Decode(&userMongo)
 	if err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return nil, domain.ErrUserNotFound
+		}
 		return nil, err
 	}
 

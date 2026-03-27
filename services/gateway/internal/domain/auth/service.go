@@ -2,7 +2,6 @@ package auth
 
 import (
 	"context"
-	"errors"
 
 	authpb "github.com/Miguel-Pezzini/GoMessenger/pkg/contracts/authpb"
 	"google.golang.org/grpc"
@@ -21,8 +20,6 @@ func NewService(client ServiceClient) *Service {
 	return &Service{client: client}
 }
 
-var ErrUserAlredyExists = errors.New("User Alredy Exists")
-
 func (s *Service) Register(ctx context.Context, req *authpb.RegisterRequest) (string, error) {
 	res, err := s.client.Register(ctx, req)
 	if err != nil {
@@ -33,5 +30,8 @@ func (s *Service) Register(ctx context.Context, req *authpb.RegisterRequest) (st
 
 func (s *Service) Authenticate(ctx context.Context, req *authpb.LoginRequest) (string, error) {
 	res, err := s.client.Login(ctx, req)
+	if err != nil {
+		return "", err
+	}
 	return res.Token, err
 }

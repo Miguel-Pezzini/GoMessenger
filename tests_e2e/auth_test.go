@@ -30,11 +30,11 @@ func TestRegisterAndLogin(t *testing.T) {
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusForbidden {
-		t.Fatalf("expected status code %d or %d, got %d", http.StatusCreated, http.StatusForbidden, resp.StatusCode)
+	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusConflict {
+		t.Fatalf("expected status code %d or %d, got %d", http.StatusCreated, http.StatusConflict, resp.StatusCode)
 	}
 
-	if resp.StatusCode == http.StatusForbidden {
+	if resp.StatusCode == http.StatusConflict {
 		return
 	}
 
