@@ -1,0 +1,43 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug Auth Service",
+      "type": "go",
+      "request": "launch",
+      "mode": "auto",
+      "program": "${workspaceFolder}/services/auth/cmd",
+      "env": {},
+      "args": []
+    },
+    {
+      "name": "Debug Gateway",
+      "type": "go",
+      "request": "launch",
+      "mode": "auto",
+      "program": "${workspaceFolder}/services/gateway/cmd",
+      "env": {},
+      "args": []
+    },
+    {
+      "name": "Debug Chat Service",
+      "type": "go",
+      "request": "launch",
+      "mode": "auto",
+      "program": "${workspaceFolder}/services/chat/cmd",
+      "env": {},
+      "args": []
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Debug ALL Services",
+      "configurations": [
+        "Debug Auth Service",
+        "Debug Gateway",
+        "Debug Chat Service"
+      ],
+      "stopAll": true
+    }
+  ]
+}

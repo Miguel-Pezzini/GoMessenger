@@ -1,0 +1,30 @@
+services:
+  redis-test:
+    image: redis:7-alpine
+    container_name: redis_test
+    ports:
+      - "6380:6379"
+
+  mongo-chat-test:
+    image: mongo:7
+    container_name: mongo_chat_test
+    ports:
+      - "27028:27017"
+
+  mongo-user-test:
+    image: mongo:7
+    container_name: mongo_user_test
+    ports:
+      - "27029:27017"
+
+  mongo-friends-test:
+    image: mongo:7
+    container_name: mongo_friends_test
+    ports:
+      - "27030:27017"
+
+  mongo-logging-test:
+    image: mongo:7
+    container_name: mongo_logging_test
+    ports:
+      - "27031:27017"

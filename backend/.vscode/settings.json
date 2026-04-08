@@ -1,0 +1,13 @@
+{
+    "git.confirmSync": false,
+    "editor.codeActionsOnSave": {
+        "source.fixAll.eslint": "explicit"
+    },
+    "rest-client.environmentVariables": {
+        "dev": {
+            "base_url": "http://localhost:8080",
+            "auth_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NzQwNDY5OTcsInVzZXJJZCI6IjY5YmM3YmZjYzBkMmUxNmFiNmMxYzk5YyJ9.XZeomSZngyF6_8_am-sXNJHtpVnW7X0noI3QWqKWZqY"
+        },
+    },
+    "terminal.integrated.enableMultiLinePasteWarning": "never",
+}

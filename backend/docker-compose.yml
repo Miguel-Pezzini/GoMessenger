@@ -1,0 +1,44 @@
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+
+  mongo-chat:
+    image: mongo:7
+    container_name: mongo_chat
+    ports:
+      - "27018:27017"
+    volumes:
+      - mongo_chat_data:/data/db
+
+  mongo-user:
+    image: mongo:7
+    container_name: mongo_user
+    ports:
+      - "27019:27017"
+    volumes:
+      - mongo_user_data:/data/db
+
+  mongo-friends:
+    image: mongo:7
+    container_name: mongo_friends
+    ports:
+      - "27020:27017"
+    volumes:
+      - mongo_friends_data:/data/db
+
+  mongo-logging:
+    image: mongo:7
+    container_name: mongo_logging
+    ports:
+      - "27021:27017"
+    volumes:
+      - mongo_logging_data:/data/db
+
+volumes:
+  mongo_chat_data:
+  mongo_user_data:
+  mongo_friends_data:
+  mongo_logging_data:
