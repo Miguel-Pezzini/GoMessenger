@@ -62,6 +62,7 @@ func Run() error {
 		NewPublisher(rdb, cfg.NotificationFriendRequestsStream),
 		audit.NewRedisPublisher(rdb, cfg.AuditStream),
 		cfg.FriendEvents,
+		authLookup,
 	)
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /friends/requests", handler.SendFriendRequest)

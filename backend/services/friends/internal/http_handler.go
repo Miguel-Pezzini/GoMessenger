@@ -20,12 +20,17 @@ type NotificationPublisher interface {
 	PublishFriendRequestNotificationIntent(senderID, receiverID, friendRequestID string) error
 }
 
+type usernameLookup interface {
+	LookupUsernameByUserID(ctx context.Context, userID string) (string, error)
+}
+
 type Handler struct {
 	service               *Service
 	publisher             EventPublisher
 	notificationPublisher NotificationPublisher
 	auditPublisher        audit.Publisher
 	channel               string
+	usernameLookup        usernameLookup
 }
 
 type sendFriendRequestRequest struct {
@@ -33,17 +38,19 @@ type sendFriendRequestRequest struct {
 }
 
 type friendResponse struct {
-	ID        string `json:"id"`
-	UserID    string `json:"userId"`
-	FriendID  string `json:"friendId"`
-	CreatedAt string `json:"createdAt"`
+	ID             string `json:"id"`
+	UserID         string `json:"userId"`
+	FriendID       string `json:"friendId"`
+	FriendUsername string `json:"friendUsername,omitempty"`
+	CreatedAt      string `json:"createdAt"`
 }
 
 type friendRequestResponse struct {
-	ID         string `json:"id"`
-	SenderID   string `json:"senderId"`
-	ReceiverID string `json:"receiverId"`
-	CreatedAt  string `json:"createdAt"`
+	ID             string `json:"id"`
+	SenderID       string `json:"senderId"`
+	SenderUsername string `json:"senderUsername,omitempty"`
+	ReceiverID     string `json:"receiverId"`
+	CreatedAt      string `json:"createdAt"`
 }
 
 type friendEvent struct {
@@ -52,8 +59,8 @@ type friendEvent struct {
 	Payload      json.RawMessage `json:"payload"`
 }
 
-func NewHandler(service *Service, publisher EventPublisher, notificationPublisher NotificationPublisher, auditPublisher audit.Publisher, channel string) *Handler {
-	return &Handler{service: service, publisher: publisher, notificationPublisher: notificationPublisher, auditPublisher: auditPublisher, channel: channel}
+func NewHandler(service *Service, publisher EventPublisher, notificationPublisher NotificationPublisher, auditPublisher audit.Publisher, channel string, usernames usernameLookup) *Handler {
+	return &Handler{service: service, publisher: publisher, notificationPublisher: notificationPublisher, auditPublisher: auditPublisher, channel: channel, usernameLookup: usernames}
 }
 
 func (h *Handler) SendFriendRequest(w stdhttp.ResponseWriter, r *stdhttp.Request) {
@@ -265,6 +272,7 @@ func (h *Handler) ListFriends(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 	for _, friend := range friendsList {
 		response = append(response, mapFriend(friend))
 	}
+	response = h.enrichFriendResponses(r.Context(), response)
 	writeJSON(w, stdhttp.StatusOK, response)
 }
 
@@ -285,6 +293,7 @@ func (h *Handler) ListPendingFriendRequests(w stdhttp.ResponseWriter, r *stdhttp
 	for _, request := range requests {
 		response = append(response, mapFriendRequest(request))
 	}
+	response = h.enrichFriendRequestResponses(r.Context(), response)
 	writeJSON(w, stdhttp.StatusOK, response)
 }
 
@@ -329,6 +338,34 @@ func mapFriendRequest(request FriendRequest) friendRequestResponse {
 		ReceiverID: request.ReceiverID,
 		CreatedAt:  request.CreatedAt.UTC().Format(timeRFC3339),
 	}
+}
+
+func (h *Handler) enrichFriendResponses(ctx context.Context, items []friendResponse) []friendResponse {
+	if h.usernameLookup == nil {
+		return items
+	}
+	for i := range items {
+		name, err := h.usernameLookup.LookupUsernameByUserID(ctx, items[i].FriendID)
+		if err != nil || name == "" {
+			continue
+		}
+		items[i].FriendUsername = name
+	}
+	return items
+}
+
+func (h *Handler) enrichFriendRequestResponses(ctx context.Context, items []friendRequestResponse) []friendRequestResponse {
+	if h.usernameLookup == nil {
+		return items
+	}
+	for i := range items {
+		name, err := h.usernameLookup.LookupUsernameByUserID(ctx, items[i].SenderID)
+		if err != nil || name == "" {
+			continue
+		}
+		items[i].SenderUsername = name
+	}
+	return items
 }
 
 func handleError(w stdhttp.ResponseWriter, err error) {

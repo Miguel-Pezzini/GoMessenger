@@ -129,6 +129,27 @@ func (h *Handler) LookupUserByFriendCode(w stdhttp.ResponseWriter, r *stdhttp.Re
 	writeJSON(w, stdhttp.StatusOK, map[string]string{"userId": userID})
 }
 
+func (h *Handler) LookupUsernameByUserID(w stdhttp.ResponseWriter, r *stdhttp.Request) {
+	if h.internalToken == "" || r.Header.Get("X-Internal-Token") != h.internalToken {
+		writeJSONError(w, stdhttp.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	userID := strings.TrimSpace(r.PathValue("userId"))
+	username, err := h.service.GetUsernameByUserID(r.Context(), userID)
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrUserNotFound):
+			writeJSONError(w, stdhttp.StatusNotFound, "user not found")
+		default:
+			writeJSONError(w, stdhttp.StatusInternalServerError, "internal server error")
+		}
+		return
+	}
+
+	writeJSON(w, stdhttp.StatusOK, map[string]string{"username": username})
+}
+
 func (h *Handler) publish(ctx context.Context, event audit.Event) {
 	if h.publisher == nil {
 		return

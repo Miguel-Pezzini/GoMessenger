@@ -26,6 +26,10 @@ func (repoStub) FindByFriendCode(context.Context, string) (*User, error) {
 	return nil, ErrUserNotFound
 }
 
+func (repoStub) FindByID(context.Context, string) (*User, error) {
+	return nil, ErrUserNotFound
+}
+
 func (repoStub) SetFriendCode(context.Context, string, string) error {
 	return nil
 }

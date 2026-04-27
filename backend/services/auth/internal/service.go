@@ -150,3 +150,17 @@ func (s *Service) LookupUserIDByFriendCode(ctx context.Context, friendCode strin
 
 	return user.ID, nil
 }
+
+func (s *Service) GetUsernameByUserID(ctx context.Context, userID string) (string, error) {
+	userID = strings.TrimSpace(userID)
+	if userID == "" {
+		return "", ErrUserNotFound
+	}
+
+	user, err := s.repo.FindByID(ctx, userID)
+	if err != nil {
+		return "", err
+	}
+
+	return user.Username, nil
+}

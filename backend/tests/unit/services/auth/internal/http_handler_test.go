@@ -29,6 +29,10 @@ func (handlerRepoStub) FindByFriendCode(context.Context, string) (*User, error) 
 	return nil, ErrUserNotFound
 }
 
+func (handlerRepoStub) FindByID(context.Context, string) (*User, error) {
+	return nil, ErrUserNotFound
+}
+
 func (handlerRepoStub) SetFriendCode(context.Context, string, string) error {
 	return nil
 }

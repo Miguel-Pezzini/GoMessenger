@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"errors"
+	"strings"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -90,6 +91,34 @@ func (r *MongoRepository) FindByUsername(ctx context.Context, username string) (
 func (r *MongoRepository) FindByFriendCode(ctx context.Context, friendCode string) (*User, error) {
 	var userMongo UserMongo
 	err := r.collection.FindOne(ctx, bson.M{"friend_code": friendCode}).Decode(&userMongo)
+	if err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return nil, ErrUserNotFound
+		}
+		return nil, err
+	}
+
+	return &User{
+		ID:         userMongo.ID.Hex(),
+		Username:   userMongo.Username,
+		Password:   userMongo.Password,
+		Role:       userMongo.Role,
+		FriendCode: userMongo.FriendCode,
+	}, nil
+}
+
+func (r *MongoRepository) FindByID(ctx context.Context, userIDHex string) (*User, error) {
+	userIDHex = strings.TrimSpace(userIDHex)
+	if userIDHex == "" {
+		return nil, ErrUserNotFound
+	}
+	oid, err := primitive.ObjectIDFromHex(userIDHex)
+	if err != nil {
+		return nil, ErrUserNotFound
+	}
+
+	var userMongo UserMongo
+	err = r.collection.FindOne(ctx, bson.M{"_id": oid}).Decode(&userMongo)
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
 			return nil, ErrUserNotFound

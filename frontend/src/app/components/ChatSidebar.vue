@@ -146,7 +146,9 @@ const submitFriendRequest = () => {
         >
           <div class="flex items-start justify-between gap-3">
             <div class="min-w-0">
-              <p class="truncate text-sm font-semibold text-slate-900">{{ request.senderId }}</p>
+              <p class="truncate text-sm font-semibold text-slate-900">
+                {{ request.senderUsername?.trim() || request.senderId }}
+              </p>
               <p class="mt-1 text-xs text-slate-500">Sent {{ formatRequestTimestamp(request.createdAt) }}</p>
             </div>
             <div class="flex shrink-0 items-center gap-1">

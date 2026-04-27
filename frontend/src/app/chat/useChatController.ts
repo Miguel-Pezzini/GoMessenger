@@ -240,9 +240,11 @@ export const useChatController = () => {
       const lastMessage = getConversationLastMessage(chatState, contactId);
       const presence = presenceByUserId.value[contactId];
 
+      const displayName = friend.friendUsername?.trim() || contactId;
+
       return {
         id: contactId,
-        name: contactId,
+        name: displayName,
         avatar: '',
         lastMessage: previewForMessage(contactId),
         timestamp: lastMessage

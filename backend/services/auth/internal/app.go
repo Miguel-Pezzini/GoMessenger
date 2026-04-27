@@ -75,6 +75,7 @@ func Run() error {
 	mux.HandleFunc("POST /auth/register", handler.Register)
 	mux.HandleFunc("POST /auth/login", handler.Login)
 	mux.HandleFunc("GET /internal/users/by-friend-code/{code}", handler.LookupUserByFriendCode)
+	mux.HandleFunc("GET /internal/users/username/{userId}", handler.LookupUsernameByUserID)
 
 	log.Printf("auth service listening on %s", cfg.Address)
 	defer rdb.Close()
