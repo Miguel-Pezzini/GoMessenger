@@ -74,6 +74,7 @@ export interface StoredSession {
   token: string;
   username: string;
   userId: string;
+  friendCode: string;
 }
 
 export interface ContactListItem {

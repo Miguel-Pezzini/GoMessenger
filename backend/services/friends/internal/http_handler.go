@@ -341,10 +341,12 @@ func handleError(w stdhttp.ResponseWriter, err error) {
 		writeJSONError(w, stdhttp.StatusBadRequest, err.Error())
 	case errors.Is(err, ErrAlreadyFriends), errors.Is(err, ErrFriendRequestAlreadyExists):
 		writeJSONError(w, stdhttp.StatusConflict, err.Error())
-	case errors.Is(err, ErrFriendRequestNotFound), errors.Is(err, ErrFriendNotFound):
+	case errors.Is(err, ErrFriendRequestNotFound), errors.Is(err, ErrFriendNotFound), errors.Is(err, ErrUnknownFriendCode):
 		writeJSONError(w, stdhttp.StatusNotFound, err.Error())
 	case errors.Is(err, ErrUnauthorizedFriendRequest):
 		writeJSONError(w, stdhttp.StatusForbidden, err.Error())
+	case errors.Is(err, ErrFriendLookupUnavailable):
+		writeJSONError(w, stdhttp.StatusServiceUnavailable, err.Error())
 	default:
 		writeJSONError(w, stdhttp.StatusInternalServerError, fmt.Sprintf("internal error: %v", err))
 	}

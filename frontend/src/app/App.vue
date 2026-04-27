@@ -28,6 +28,7 @@ const {
   currentMessages,
   currentUser,
   currentUserId,
+  currentFriendCode,
   handleAcceptRequest,
   handleAuthSubmit: submitAuth,
   handleDeclineRequest,
@@ -97,7 +98,8 @@ const handleAuthSubmit = async (payload: { username: string; password: string; m
         :pendingRequests="pendingRequests"
         :selectedContactId="selectedContactId"
         :isLoading="isFriendsLoading"
-        :currentUserId="currentUserId"
+        :currentUsername="currentUser"
+        :myFriendCode="currentFriendCode"
         :actionError="actionError"
         :actionSuccess="actionSuccess"
         @selectContact="handleSelectContact"

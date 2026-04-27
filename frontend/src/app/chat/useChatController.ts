@@ -50,6 +50,7 @@ export const useChatController = () => {
   const isFriendsLoading = ref(false);
   const currentUser = ref('');
   const currentUserId = ref('');
+  const currentFriendCode = ref('');
   const sessionToken = ref('');
   const actionError = ref('');
   const actionSuccess = ref('');
@@ -614,6 +615,7 @@ export const useChatController = () => {
     sessionToken.value = session.token;
     currentUser.value = session.username;
     currentUserId.value = session.userId;
+    currentFriendCode.value = session.friendCode || '';
     isAuthenticated.value = true;
 
     connectWebSocket(session.token);
@@ -646,15 +648,19 @@ export const useChatController = () => {
 
       const userId = parseJwtUserId(token);
 
+      const friendCode = typeof data.friendCode === 'string' ? data.friendCode : '';
+
       saveStoredSession({
         token,
         username: payload.username,
+        friendCode,
       });
 
       manualDisconnect = false;
       sessionToken.value = token;
       currentUser.value = payload.username;
       currentUserId.value = userId;
+      currentFriendCode.value = friendCode;
       isAuthenticated.value = true;
       actionError.value = '';
       actionSuccess.value = '';
@@ -679,7 +685,7 @@ export const useChatController = () => {
 
     try {
       await apiClient.sendFriendRequest(receiverId);
-      actionSuccess.value = `Friend request sent to ${receiverId}.`;
+      actionSuccess.value = 'Friend request sent.';
       await refreshFriendsData();
     } catch (error) {
       actionError.value = error instanceof Error ? error.message : 'Failed to send friend request.';
@@ -844,6 +850,7 @@ export const useChatController = () => {
     seenAcknowledgements.clear();
     currentUser.value = '';
     currentUserId.value = '';
+    currentFriendCode.value = '';
     sessionToken.value = '';
     friends.value = [];
     pendingRequests.value = [];
@@ -938,6 +945,7 @@ export const useChatController = () => {
     currentMessages,
     currentUser,
     currentUserId,
+    currentFriendCode,
     handleAcceptRequest,
     handleAuthSubmit,
     handleDeclineRequest,

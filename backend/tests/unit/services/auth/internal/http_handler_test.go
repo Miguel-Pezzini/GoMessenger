@@ -25,12 +25,20 @@ func (r handlerRepoStub) FindByUsername(ctx context.Context, username string) (*
 	return r.findByUsernameFn(ctx, username)
 }
 
+func (handlerRepoStub) FindByFriendCode(context.Context, string) (*User, error) {
+	return nil, ErrUserNotFound
+}
+
+func (handlerRepoStub) SetFriendCode(context.Context, string, string) error {
+	return nil
+}
+
 type handlerAuditPublisherStub struct{}
 
 func (handlerAuditPublisherStub) Publish(context.Context, audit.Event) error { return nil }
 
 func TestRegisterRejectsUnknownFields(t *testing.T) {
-	handler := NewHandler(NewService(handlerRepoStub{}, NewTokenIssuer("secret", testJWTExpiry)), handlerAuditPublisherStub{})
+	handler := NewHandler(NewService(handlerRepoStub{}, NewTokenIssuer("secret", testJWTExpiry)), handlerAuditPublisherStub{}, "")
 	req := httptest.NewRequest(http.MethodPost, "/auth/register", bytes.NewBufferString(`{"username":"alice","password":"secret","extra":true}`))
 	rec := httptest.NewRecorder()
 
@@ -50,7 +58,7 @@ func TestRegisterRejectsUnknownFields(t *testing.T) {
 }
 
 func TestLoginRejectsEmptyBody(t *testing.T) {
-	handler := NewHandler(NewService(handlerRepoStub{}, NewTokenIssuer("secret", testJWTExpiry)), handlerAuditPublisherStub{})
+	handler := NewHandler(NewService(handlerRepoStub{}, NewTokenIssuer("secret", testJWTExpiry)), handlerAuditPublisherStub{}, "")
 	req := httptest.NewRequest(http.MethodPost, "/auth/login", bytes.NewBuffer(nil))
 	rec := httptest.NewRecorder()
 
@@ -70,7 +78,7 @@ func TestRegisterReturnsGenericInternalError(t *testing.T) {
 			t.Fatal("create should not be called")
 			return nil, nil
 		},
-	}, NewTokenIssuer("secret", testJWTExpiry)), handlerAuditPublisherStub{})
+	}, NewTokenIssuer("secret", testJWTExpiry)), handlerAuditPublisherStub{}, "")
 	req := httptest.NewRequest(http.MethodPost, "/auth/register", bytes.NewBufferString(`{"username":"alice","password":"secret"}`))
 	rec := httptest.NewRecorder()
 

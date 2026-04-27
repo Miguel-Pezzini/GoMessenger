@@ -9,7 +9,8 @@ interface Props {
   pendingRequests: FriendRequest[];
   selectedContactId: string | null;
   isLoading: boolean;
-  currentUserId: string;
+  currentUsername: string;
+  myFriendCode: string;
   actionError: string;
   actionSuccess: string;
 }
@@ -24,7 +25,7 @@ const emit = defineEmits<{
 }>();
 
 const search = ref('');
-const receiverId = ref('');
+const friendCodeOrIdInput = ref('');
 
 const requestDateFormatter = new Intl.DateTimeFormat('en-US', {
   month: 'short',
@@ -54,13 +55,13 @@ const formatRequestTimestamp = (value: string) => {
 };
 
 const submitFriendRequest = () => {
-  const value = receiverId.value.trim();
+  const value = friendCodeOrIdInput.value.trim();
   if (!value) {
     return;
   }
 
   emit('sendFriendRequest', value);
-  receiverId.value = '';
+  friendCodeOrIdInput.value = '';
 };
 </script>
 
@@ -74,13 +75,15 @@ const submitFriendRequest = () => {
 
       <form class="mb-3 space-y-2" @submit.prevent="submitFriendRequest">
         <label class="block text-xs font-semibold uppercase tracking-[0.18em] text-indigo-500">
-          Add Friend By User ID
+          Add friend by code
         </label>
         <div class="flex gap-2">
           <input
-            v-model="receiverId"
+            v-model="friendCodeOrIdInput"
             type="text"
-            placeholder="Paste the user id"
+            inputmode="numeric"
+            autocomplete="off"
+            placeholder="6–8 digit friend code"
             class="min-w-0 flex-1 rounded-xl border border-indigo-200 bg-white px-3 py-2 text-sm text-gray-900 outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
           />
           <button
@@ -109,9 +112,15 @@ const submitFriendRequest = () => {
       <p v-if="actionSuccess" class="mt-3 rounded-xl bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
         {{ actionSuccess }}
       </p>
-      <p v-if="currentUserId" class="mt-3 text-xs text-slate-500">
-        Logged in as <span class="font-semibold text-slate-700">{{ currentUserId }}</span>
-      </p>
+      <div v-if="currentUsername" class="mt-3 space-y-1 text-xs text-slate-500">
+        <p>
+          Logged in as <span class="font-semibold text-slate-700">{{ currentUsername }}</span>
+        </p>
+        <p v-if="myFriendCode">
+          Your friend code:
+          <span class="font-mono font-semibold tracking-wide text-slate-700">{{ myFriendCode }}</span>
+        </p>
+      </div>
     </div>
 
     <div class="border-b border-white/60 bg-white/40 px-4 py-3">

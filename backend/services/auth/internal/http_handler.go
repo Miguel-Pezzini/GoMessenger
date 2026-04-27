@@ -6,21 +6,24 @@ import (
 	"errors"
 	"io"
 	stdhttp "net/http"
+	"strings"
 
 	"github.com/Miguel-Pezzini/GoMessenger/internal/platform/audit"
 )
 
 type Handler struct {
-	service   *Service
-	publisher audit.Publisher
+	service       *Service
+	publisher     audit.Publisher
+	internalToken string
 }
 
-type authResponse struct {
-	Token string `json:"token"`
+type tokenResponse struct {
+	Token      string `json:"token"`
+	FriendCode string `json:"friendCode,omitempty"`
 }
 
-func NewHandler(service *Service, publisher audit.Publisher) *Handler {
-	return &Handler{service: service, publisher: publisher}
+func NewHandler(service *Service, publisher audit.Publisher, internalToken string) *Handler {
+	return &Handler{service: service, publisher: publisher, internalToken: strings.TrimSpace(internalToken)}
 }
 
 func (h *Handler) Register(w stdhttp.ResponseWriter, r *stdhttp.Request) {
@@ -60,7 +63,7 @@ func (h *Handler) Register(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 		},
 	})
 
-	writeJSON(w, stdhttp.StatusCreated, authResponse{Token: res.Token})
+	writeJSON(w, stdhttp.StatusCreated, tokenResponse{Token: res.Token, FriendCode: res.FriendCode})
 }
 
 func (h *Handler) Login(w stdhttp.ResponseWriter, r *stdhttp.Request) {
@@ -100,7 +103,30 @@ func (h *Handler) Login(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 		},
 	})
 
-	writeJSON(w, stdhttp.StatusOK, authResponse{Token: res.Token})
+	writeJSON(w, stdhttp.StatusOK, tokenResponse{Token: res.Token, FriendCode: res.FriendCode})
+}
+
+func (h *Handler) LookupUserByFriendCode(w stdhttp.ResponseWriter, r *stdhttp.Request) {
+	if h.internalToken == "" || r.Header.Get("X-Internal-Token") != h.internalToken {
+		writeJSONError(w, stdhttp.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	code := strings.TrimSpace(r.PathValue("code"))
+	userID, err := h.service.LookupUserIDByFriendCode(r.Context(), code)
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrUserNotFound):
+			writeJSONError(w, stdhttp.StatusNotFound, "unknown friend code")
+		case errors.Is(err, ErrFriendCodeRequired):
+			writeJSONError(w, stdhttp.StatusBadRequest, err.Error())
+		default:
+			writeJSONError(w, stdhttp.StatusInternalServerError, "internal server error")
+		}
+		return
+	}
+
+	writeJSON(w, stdhttp.StatusOK, map[string]string{"userId": userID})
 }
 
 func (h *Handler) publish(ctx context.Context, event audit.Event) {

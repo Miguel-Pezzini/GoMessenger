@@ -12,24 +12,26 @@ import (
 )
 
 type Config struct {
-	Address       string
-	MongoURI      string
-	MongoDatabase string
-	RedisAddr     string
-	AuditStream   string
-	JWTSecret     string
-	JWTExpiry     time.Duration
+	Address             string
+	MongoURI            string
+	MongoDatabase       string
+	RedisAddr           string
+	AuditStream         string
+	JWTSecret           string
+	JWTExpiry           time.Duration
+	InternalServiceToken string
 }
 
 func LoadConfig() Config {
 	return Config{
-		Address:       config.MustString("AUTH_ADDR"),
-		MongoURI:      config.MustString("AUTH_MONGO_URI"),
-		MongoDatabase: config.MustString("AUTH_MONGO_DB"),
-		RedisAddr:     config.MustString("REDIS_ADDR"),
-		AuditStream:   config.MustString("REDIS_STREAM_AUDIT_LOGS"),
-		JWTSecret:     config.MustString("JWT_SECRET"),
-		JWTExpiry:     parseJWTExpiry(config.String("JWT_EXPIRY", "")),
+		Address:              config.MustString("AUTH_ADDR"),
+		MongoURI:             config.MustString("AUTH_MONGO_URI"),
+		MongoDatabase:        config.MustString("AUTH_MONGO_DB"),
+		RedisAddr:            config.MustString("REDIS_ADDR"),
+		AuditStream:          config.MustString("REDIS_STREAM_AUDIT_LOGS"),
+		JWTSecret:            config.MustString("JWT_SECRET"),
+		JWTExpiry:            parseJWTExpiry(config.String("JWT_EXPIRY", "")),
+		InternalServiceToken: config.String("INTERNAL_SERVICE_TOKEN", "dev-internal-token"),
 	}
 }
 
@@ -58,15 +60,21 @@ func Run() error {
 		return err
 	}
 
+	repo, err := NewMongoRepository(db)
+	if err != nil {
+		return err
+	}
+
 	service := NewService(
-		NewMongoRepository(db),
+		repo,
 		NewTokenIssuer(cfg.JWTSecret, cfg.JWTExpiry),
 	)
 
-	handler := NewHandler(service, audit.NewRedisPublisher(rdb, cfg.AuditStream))
+	handler := NewHandler(service, audit.NewRedisPublisher(rdb, cfg.AuditStream), cfg.InternalServiceToken)
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /auth/register", handler.Register)
 	mux.HandleFunc("POST /auth/login", handler.Login)
+	mux.HandleFunc("GET /internal/users/by-friend-code/{code}", handler.LookupUserByFriendCode)
 
 	log.Printf("auth service listening on %s", cfg.Address)
 	defer rdb.Close()

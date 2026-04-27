@@ -27,6 +27,67 @@ type friendResponse struct {
 	CreatedAt string `json:"createdAt"`
 }
 
+func TestSendFriendRequestByFriendCode(t *testing.T) {
+	t.Parallel()
+
+	timestamp := time.Now().UnixNano()
+	password := "123456"
+
+	senderUsername := fmt.Sprintf("friends_fc_sender_%d", timestamp)
+	receiverUsername := fmt.Sprintf("friends_fc_receiver_%d", timestamp)
+
+	senderToken := registerOrLogin(t, senderUsername, password)
+	receiverToken := registerOrLogin(t, receiverUsername, password)
+
+	receiverID := extractUserIDFromJWT(t, receiverToken)
+	receiverFriendCode := friendCodeFromLogin(t, receiverUsername, password)
+
+	request := sendFriendRequest(t, senderToken, receiverFriendCode)
+
+	if request.ReceiverID != receiverID {
+		t.Fatalf("expected receiver %s, got %s", receiverID, request.ReceiverID)
+	}
+
+	pendingRequests := listPendingFriendRequests(t, receiverToken)
+	if !hasPendingRequest(pendingRequests, request.ID, extractUserIDFromJWT(t, senderToken), receiverID) {
+		t.Fatalf("expected pending requests to include request %+v, got %+v", request, pendingRequests)
+	}
+}
+
+func friendCodeFromLogin(t *testing.T, username, password string) string {
+	t.Helper()
+
+	body := map[string]string{"username": username, "password": password}
+	data, err := json.Marshal(body)
+	if err != nil {
+		t.Fatalf("marshal login body: %v", err)
+	}
+
+	resp, err := http.Post(gatewayBaseURL+"/auth/login", "application/json", bytes.NewReader(data))
+	if err != nil {
+		var netErr *net.OpError
+		if errors.As(err, &netErr) {
+			t.Skipf("gateway unavailable for integration test: %v", err)
+		}
+		t.Fatalf("login request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected login status %d, got %d: %s", http.StatusOK, resp.StatusCode, readResponseBody(t, resp))
+	}
+
+	var out RegisterResponse
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		t.Fatalf("decode login: %v", err)
+	}
+	if out.FriendCode == "" {
+		t.Fatal("expected friendCode in login response")
+	}
+
+	return out.FriendCode
+}
+
 func TestSendFriendRequestCreatesPendingRequest(t *testing.T) {
 	t.Parallel()
 

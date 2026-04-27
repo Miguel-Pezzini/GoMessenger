@@ -22,6 +22,14 @@ func (r repoStub) FindByUsername(ctx context.Context, username string) (*User, e
 	return r.findByUsernameFn(ctx, username)
 }
 
+func (repoStub) FindByFriendCode(context.Context, string) (*User, error) {
+	return nil, ErrUserNotFound
+}
+
+func (repoStub) SetFriendCode(context.Context, string, string) error {
+	return nil
+}
+
 func notCalled(t *testing.T, name string) func(context.Context, *RegisterRequest) (*User, error) {
 	t.Helper()
 	return func(context.Context, *RegisterRequest) (*User, error) {
@@ -68,7 +76,7 @@ func TestRegisterSuccessReturnsToken(t *testing.T) {
 			return nil, ErrUserNotFound
 		},
 		createFn: func(_ context.Context, req *RegisterRequest) (*User, error) {
-			return &User{ID: "user-1", Username: "alice", Role: req.Role}, nil
+			return &User{ID: "user-1", Username: "alice", Role: req.Role, FriendCode: req.FriendCode}, nil
 		},
 	}, NewTokenIssuer("secret", time.Hour))
 
@@ -78,6 +86,9 @@ func TestRegisterSuccessReturnsToken(t *testing.T) {
 	}
 	if resp.Token == "" {
 		t.Fatal("expected a non-empty token")
+	}
+	if resp.FriendCode == "" {
+		t.Fatal("expected friend code to be assigned")
 	}
 	if resp.Role != RoleUser {
 		t.Fatalf("expected role=%s, got %s", RoleUser, resp.Role)
@@ -195,7 +206,7 @@ func TestAuthenticateCorrectCredentialsReturnsToken(t *testing.T) {
 
 	loginSvc := NewService(repoStub{
 		findByUsernameFn: func(_ context.Context, _ string) (*User, error) {
-			return &User{ID: "1", Username: "alice", Password: storedHash, Role: RoleUser}, nil
+			return &User{ID: "1", Username: "alice", Password: storedHash, Role: RoleUser, FriendCode: "12345678"}, nil
 		},
 	}, NewTokenIssuer("secret", time.Hour))
 
@@ -209,6 +220,9 @@ func TestAuthenticateCorrectCredentialsReturnsToken(t *testing.T) {
 	if resp.Role != RoleUser {
 		t.Fatalf("expected role=%s, got %s", RoleUser, resp.Role)
 	}
+	if resp.FriendCode != "12345678" {
+		t.Fatalf("expected friend code in login response, got %q", resp.FriendCode)
+	}
 }
 
 func TestRegisterDefaultsToUserRole(t *testing.T) {
@@ -219,7 +233,7 @@ func TestRegisterDefaultsToUserRole(t *testing.T) {
 		},
 		createFn: func(_ context.Context, req *RegisterRequest) (*User, error) {
 			capturedRole = req.Role
-			return &User{ID: "1", Username: "alice", Role: req.Role}, nil
+			return &User{ID: "1", Username: "alice", Role: req.Role, FriendCode: req.FriendCode}, nil
 		},
 	}, NewTokenIssuer("secret", time.Hour))
 
@@ -243,7 +257,7 @@ func TestRegisterAdminRoleIsPreserved(t *testing.T) {
 		},
 		createFn: func(_ context.Context, req *RegisterRequest) (*User, error) {
 			capturedRole = req.Role
-			return &User{ID: "1", Username: "admin", Role: req.Role}, nil
+			return &User{ID: "1", Username: "admin", Role: req.Role, FriendCode: req.FriendCode}, nil
 		},
 	}, NewTokenIssuer("secret", time.Hour))
 
