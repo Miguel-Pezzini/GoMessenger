@@ -4,6 +4,7 @@ import {
   Activity,
   AlertTriangle,
   BarChart3,
+  ChevronDown,
   Circle,
   Clock,
   Filter,
@@ -389,20 +390,32 @@ onBeforeUnmount(() => {
                 placeholder="Search"
               />
             </label>
-            <select v-model="filters.service" class="h-10 rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-900 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-sky-500 dark:focus:ring-sky-500/20">
-              <option value="">All services</option>
-              <option v-for="service in serviceOptions" :key="service" :value="service">{{ service }}</option>
-            </select>
-            <select v-model="filters.category" class="h-10 rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-900 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-sky-500 dark:focus:ring-sky-500/20">
-              <option value="">All categories</option>
-              <option value="audit">Audit</option>
-              <option value="error">Error</option>
-            </select>
-            <select v-model="filters.status" class="h-10 rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-900 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-sky-500 dark:focus:ring-sky-500/20">
-              <option value="">All statuses</option>
-              <option value="success">Success</option>
-              <option value="failure">Failure</option>
-            </select>
+            <label class="relative">
+              <span class="sr-only">Service</span>
+              <select v-model="filters.service" class="h-10 w-full cursor-pointer appearance-none rounded-lg border border-slate-200 bg-slate-50 py-0 pl-3 pr-9 text-sm text-slate-900 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-sky-500 dark:focus:ring-sky-500/20">
+                <option value="">All services</option>
+                <option v-for="service in serviceOptions" :key="service" :value="service">{{ service }}</option>
+              </select>
+              <ChevronDown class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" :size="16" />
+            </label>
+            <label class="relative">
+              <span class="sr-only">Category</span>
+              <select v-model="filters.category" class="h-10 w-full cursor-pointer appearance-none rounded-lg border border-slate-200 bg-slate-50 py-0 pl-3 pr-9 text-sm text-slate-900 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-sky-500 dark:focus:ring-sky-500/20">
+                <option value="">All categories</option>
+                <option value="audit">Audit</option>
+                <option value="error">Error</option>
+              </select>
+              <ChevronDown class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" :size="16" />
+            </label>
+            <label class="relative">
+              <span class="sr-only">Status</span>
+              <select v-model="filters.status" class="h-10 w-full cursor-pointer appearance-none rounded-lg border border-slate-200 bg-slate-50 py-0 pl-3 pr-9 text-sm text-slate-900 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-sky-500 dark:focus:ring-sky-500/20">
+                <option value="">All statuses</option>
+                <option value="success">Success</option>
+                <option value="failure">Failure</option>
+              </select>
+              <ChevronDown class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" :size="16" />
+            </label>
             <input
               v-model="filters.eventType"
               type="text"
