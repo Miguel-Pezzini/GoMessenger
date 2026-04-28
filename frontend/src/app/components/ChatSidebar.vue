@@ -88,7 +88,7 @@ const submitFriendRequest = () => {
           />
           <button
             type="submit"
-            class="inline-flex h-10 shrink-0 items-center justify-center rounded-xl bg-indigo-600 px-4 text-sm font-semibold text-white transition hover:bg-indigo-700 dark:bg-indigo-700 dark:hover:bg-indigo-600"
+            class="inline-flex h-10 cursor-pointer shrink-0 items-center justify-center rounded-xl bg-indigo-600 px-4 text-sm font-semibold text-white transition hover:bg-indigo-700 dark:bg-indigo-700 dark:hover:bg-indigo-600"
           >
             <UserPlus :size="16" class="mr-2" />
             Send
@@ -154,14 +154,14 @@ const submitFriendRequest = () => {
             <div class="flex shrink-0 items-center gap-1">
               <button
                 type="button"
-                class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 transition hover:bg-emerald-200 dark:bg-emerald-900/40 dark:text-emerald-400 dark:hover:bg-emerald-900/70"
+                class="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-full bg-emerald-100 text-emerald-700 transition hover:bg-emerald-200 dark:bg-emerald-900/40 dark:text-emerald-400 dark:hover:bg-emerald-900/70"
                 @click="emit('acceptRequest', request.id)"
               >
                 <Check :size="16" />
               </button>
               <button
                 type="button"
-                class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-rose-100 text-rose-700 transition hover:bg-rose-200 dark:bg-rose-900/40 dark:text-rose-400 dark:hover:bg-rose-900/70"
+                class="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-full bg-rose-100 text-rose-700 transition hover:bg-rose-200 dark:bg-rose-900/40 dark:text-rose-400 dark:hover:bg-rose-900/70"
                 @click="emit('declineRequest', request.id)"
               >
                 <X :size="16" />
@@ -201,7 +201,7 @@ const submitFriendRequest = () => {
         >
           <button
             type="button"
-            class="flex min-w-0 flex-1 items-center gap-3 text-left"
+            class="flex min-w-0 flex-1 cursor-pointer items-center gap-3 text-left"
             @click="emit('selectContact', contact.id)"
           >
             <div class="relative">
@@ -242,7 +242,7 @@ const submitFriendRequest = () => {
 
           <button
             type="button"
-            class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-rose-50 hover:text-rose-600 dark:text-slate-500 dark:hover:bg-rose-900/30 dark:hover:text-rose-400"
+            class="inline-flex h-9 w-9 cursor-pointer shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-rose-50 hover:text-rose-600 dark:text-slate-500 dark:hover:bg-rose-900/30 dark:hover:text-rose-400"
             @click="emit('removeFriend', contact.id)"
           >
             <Trash2 :size="16" />

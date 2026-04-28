@@ -163,7 +163,7 @@ onBeforeUnmount(() => {
         <FileText :size="14" class="shrink-0 text-indigo-500 dark:text-indigo-400" />
         <span class="max-w-48 truncate">{{ attachment.filename }}</span>
         <button
-          class="inline-flex size-5 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-700 dark:hover:text-slate-300"
+          class="inline-flex size-5 cursor-pointer items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-700 dark:hover:text-slate-300"
           type="button"
           @click="emit('removeAttachment', attachment.id)"
         >
@@ -178,14 +178,14 @@ onBeforeUnmount(() => {
       <input ref="fileInputRef" class="hidden" multiple type="file" @change="handleFileChange" />
       <button
         :disabled="props.disabled || props.isUploadingAttachments || props.attachments.length >= 10"
-        class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-medium transition-colors hover:bg-indigo-50 disabled:pointer-events-none disabled:opacity-50 dark:hover:bg-indigo-900/40"
+        class="inline-flex h-10 w-10 cursor-pointer shrink-0 items-center justify-center rounded-full text-sm font-medium transition-colors hover:bg-indigo-50 disabled:pointer-events-none disabled:opacity-50 dark:hover:bg-indigo-900/40"
         type="button"
         @click="openFilePicker"
       >
         <Paperclip :size="20" class="text-indigo-600 dark:text-indigo-400" />
       </button>
 
-      <button class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-medium transition-colors hover:bg-indigo-50 dark:hover:bg-indigo-900/40">
+      <button class="inline-flex h-10 w-10 cursor-pointer shrink-0 items-center justify-center rounded-full text-sm font-medium transition-colors hover:bg-indigo-50 dark:hover:bg-indigo-900/40">
         <Smile :size="20" class="text-indigo-600 dark:text-indigo-400" />
       </button>
 
@@ -201,7 +201,7 @@ onBeforeUnmount(() => {
 
       <button
         :disabled="props.disabled || props.isUploadingAttachments || (!message.trim() && !props.attachments.length)"
-        class="inline-flex h-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-r from-indigo-600 to-purple-600 px-4 text-sm font-medium text-white shadow-md transition-colors hover:from-indigo-700 hover:to-purple-700 disabled:pointer-events-none disabled:opacity-50"
+        class="inline-flex h-10 cursor-pointer shrink-0 items-center justify-center rounded-full bg-gradient-to-r from-indigo-600 to-purple-600 px-4 text-sm font-medium text-white shadow-md transition-colors hover:from-indigo-700 hover:to-purple-700 disabled:pointer-events-none disabled:opacity-50"
         type="button"
         @click="handleSend"
       >

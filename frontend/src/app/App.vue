@@ -84,7 +84,7 @@ const handleAuthSubmit = async (payload: { username: string; password: string; m
       <div class="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(129,140,248,.2),transparent_35%),radial-gradient(circle_at_80%_0%,rgba(14,165,233,.18),transparent_25%)]" />
       <button
         type="button"
-        class="absolute right-4 top-4 z-20 inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white/70 transition hover:bg-white/20 hover:text-white"
+        class="absolute right-4 top-4 z-20 inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-white/10 text-white/70 transition hover:bg-white/20 hover:text-white"
         @click="toggleTheme"
       >
         <Moon v-if="!isDark" :size="16" />
@@ -102,7 +102,7 @@ const handleAuthSubmit = async (payload: { username: string; password: string; m
       <div class="absolute right-3 top-3 z-20 flex items-center gap-2">
         <button
           type="button"
-          class="inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-slate-600 shadow-md transition hover:bg-white dark:bg-slate-800/90 dark:text-slate-400 dark:hover:bg-slate-800"
+          class="inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-white/90 text-slate-600 shadow-md transition hover:bg-white dark:bg-slate-800/90 dark:text-slate-400 dark:hover:bg-slate-800"
           @click="toggleTheme"
         >
           <Moon v-if="!isDark" :size="15" />
@@ -110,7 +110,7 @@ const handleAuthSubmit = async (payload: { username: string; password: string; m
         </button>
         <button
           type="button"
-          class="inline-flex items-center gap-1 rounded-full bg-white/90 px-3 py-2 text-xs font-semibold text-slate-700 shadow-md transition hover:bg-white dark:bg-slate-800/90 dark:text-slate-300 dark:hover:bg-slate-800"
+          class="inline-flex cursor-pointer items-center gap-1 rounded-full bg-white/90 px-3 py-2 text-xs font-semibold text-slate-700 shadow-md transition hover:bg-white dark:bg-slate-800/90 dark:text-slate-300 dark:hover:bg-slate-800"
           @click="handleLogout"
         >
           <LogOut :size="14" />

@@ -24,7 +24,7 @@ const emit = defineEmits<{
       <button
         v-if="showBackButton"
         type="button"
-        class="inline-flex h-10 w-10 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-slate-200 md:hidden"
+        class="inline-flex h-10 w-10 cursor-pointer items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-slate-200 md:hidden"
         @click="emit('back')"
       >
         <ArrowLeft :size="18" />
@@ -55,13 +55,13 @@ const emit = defineEmits<{
     </div>
 
     <div class="flex items-center gap-2">
-      <button class="inline-flex h-10 w-10 items-center justify-center rounded-full text-sm font-medium transition-colors hover:bg-indigo-50 dark:hover:bg-indigo-900/40">
+      <button class="inline-flex h-10 w-10 cursor-pointer items-center justify-center rounded-full text-sm font-medium transition-colors hover:bg-indigo-50 dark:hover:bg-indigo-900/40">
         <Phone :size="20" class="text-indigo-600 dark:text-indigo-400" />
       </button>
-      <button class="inline-flex h-10 w-10 items-center justify-center rounded-full text-sm font-medium transition-colors hover:bg-indigo-50 dark:hover:bg-indigo-900/40">
+      <button class="inline-flex h-10 w-10 cursor-pointer items-center justify-center rounded-full text-sm font-medium transition-colors hover:bg-indigo-50 dark:hover:bg-indigo-900/40">
         <Video :size="20" class="text-indigo-600 dark:text-indigo-400" />
       </button>
-      <button class="inline-flex h-10 w-10 items-center justify-center rounded-full text-sm font-medium transition-colors hover:bg-indigo-50 dark:hover:bg-indigo-900/40">
+      <button class="inline-flex h-10 w-10 cursor-pointer items-center justify-center rounded-full text-sm font-medium transition-colors hover:bg-indigo-50 dark:hover:bg-indigo-900/40">
         <MoreVertical :size="20" class="text-indigo-600 dark:text-indigo-400" />
       </button>
     </div>
