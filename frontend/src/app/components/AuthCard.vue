@@ -75,43 +75,43 @@ defineExpose({
 </script>
 
 <template>
-  <section class="w-full max-w-md rounded-3xl border border-white/40 bg-white/75 p-6 shadow-2xl backdrop-blur-xl sm:p-8">
+  <section class="w-full max-w-md rounded-3xl border border-white/40 bg-white/75 p-6 shadow-2xl backdrop-blur-xl dark:border-slate-700/40 dark:bg-slate-800/80 sm:p-8">
     <div class="mb-6">
-      <div class="mb-4 inline-flex items-center gap-2 rounded-full bg-indigo-100 px-3 py-1 text-sm font-medium text-indigo-700">
+      <div class="mb-4 inline-flex items-center gap-2 rounded-full bg-indigo-100 px-3 py-1 text-sm font-medium text-indigo-700 dark:bg-indigo-900/60 dark:text-indigo-300">
         <MessageCircleMore :size="16" />
         GoMessenger
       </div>
-      <h1 class="text-2xl font-bold text-gray-900 sm:text-3xl">{{ title }}</h1>
-      <p class="mt-2 text-sm text-gray-600 sm:text-base">{{ subtitle }}</p>
+      <h1 class="text-2xl font-bold text-gray-900 dark:text-slate-100 sm:text-3xl">{{ title }}</h1>
+      <p class="mt-2 text-sm text-gray-600 dark:text-slate-400 sm:text-base">{{ subtitle }}</p>
     </div>
 
     <form class="space-y-4" @submit.prevent="submit">
       <div>
-        <label class="mb-1 block text-sm font-medium text-gray-700" for="username">Username</label>
+        <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-slate-300" for="username">Username</label>
         <input
           id="username"
           v-model="username"
           type="text"
           autocomplete="username"
-          class="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-gray-900 outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+          class="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-gray-900 outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100 dark:focus:border-indigo-500 dark:focus:ring-indigo-900"
           placeholder="Enter your username"
         />
       </div>
 
       <div>
-        <label class="mb-1 block text-sm font-medium text-gray-700" for="password">Password</label>
+        <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-slate-300" for="password">Password</label>
         <input
           id="password"
           v-model="password"
           type="password"
           :autocomplete="mode === 'login' ? 'current-password' : 'new-password'"
-          class="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-gray-900 outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+          class="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-gray-900 outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100 dark:focus:border-indigo-500 dark:focus:ring-indigo-900"
           placeholder="Enter your password"
         />
       </div>
 
-      <p v-if="error" class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{{ error }}</p>
-      <p v-if="success" class="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{{ success }}</p>
+      <p v-if="error" class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-900/30 dark:text-red-400">{{ error }}</p>
+      <p v-if="success" class="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">{{ success }}</p>
 
       <button
         type="submit"
@@ -125,7 +125,7 @@ defineExpose({
 
     <button
       type="button"
-      class="mt-4 w-full text-sm font-medium text-indigo-700 transition hover:text-indigo-900"
+      class="mt-4 w-full text-sm font-medium text-indigo-700 transition hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300"
       @click="emit('toggleMode')"
     >
       {{ toggleText }}

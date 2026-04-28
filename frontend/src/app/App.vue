@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useTemplateRef } from 'vue';
-import { LogOut, MessageCirclePlus, Wifi, WifiOff } from 'lucide-vue-next';
+import { LogOut, MessageCirclePlus, Moon, Sun, Wifi, WifiOff } from 'lucide-vue-next';
+import { useTheme } from './chat/useTheme.ts';
 
 import AuthCard from './components/AuthCard.vue';
 import ChatHeader from './components/ChatHeader.vue';
@@ -16,6 +17,8 @@ type AuthCardExposed = {
 };
 
 const authCardRef = useTemplateRef<AuthCardExposed>('authCardRef');
+
+const { isDark, toggleTheme } = useTheme();
 
 const {
   actionError,
@@ -76,26 +79,44 @@ const handleAuthSubmit = async (payload: { username: string; password: string; m
   <main>
     <div
       v-if="!isAuthenticated"
-      class="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-900 via-indigo-950 to-violet-900 px-4 py-8"
+      class="relative flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-900 via-indigo-950 to-violet-900 px-4 py-8"
     >
       <div class="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(129,140,248,.2),transparent_35%),radial-gradient(circle_at_80%_0%,rgba(14,165,233,.18),transparent_25%)]" />
+      <button
+        type="button"
+        class="absolute right-4 top-4 z-20 inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white/70 transition hover:bg-white/20 hover:text-white"
+        @click="toggleTheme"
+      >
+        <Moon v-if="!isDark" :size="16" />
+        <Sun v-else :size="16" />
+      </button>
       <AuthCard ref="authCardRef" :mode="authMode" @submit="handleAuthSubmit" @toggleMode="toggleAuthMode" />
     </div>
 
     <div
       v-else
-      class="relative mx-auto flex h-screen max-w-[1600px] overflow-hidden bg-[radial-gradient(circle_at_top_left,rgba(129,140,248,0.25),transparent_32%),radial-gradient(circle_at_top_right,rgba(34,197,94,0.15),transparent_22%),linear-gradient(135deg,#eef2ff_0%,#f8fafc_45%,#fdf2f8_100%)] shadow-2xl"
+      class="chat-bg relative mx-auto flex h-screen max-w-[1600px] overflow-hidden shadow-2xl"
     >
-      <div class="pointer-events-none absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.35)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.28)_1px,transparent_1px)] bg-[size:26px_26px] opacity-25" />
+      <div class="pointer-events-none absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.35)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.28)_1px,transparent_1px)] bg-[size:26px_26px] opacity-25 dark:opacity-5" />
 
-      <button
-        type="button"
-        class="absolute right-3 top-3 z-20 inline-flex items-center gap-1 rounded-full bg-white/90 px-3 py-2 text-xs font-semibold text-slate-700 shadow-md transition hover:bg-white"
-        @click="handleLogout"
-      >
-        <LogOut :size="14" />
-        Logout {{ currentUser }}
-      </button>
+      <div class="absolute right-3 top-3 z-20 flex items-center gap-2">
+        <button
+          type="button"
+          class="inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-slate-600 shadow-md transition hover:bg-white dark:bg-slate-800/90 dark:text-slate-400 dark:hover:bg-slate-800"
+          @click="toggleTheme"
+        >
+          <Moon v-if="!isDark" :size="15" />
+          <Sun v-else :size="15" />
+        </button>
+        <button
+          type="button"
+          class="inline-flex items-center gap-1 rounded-full bg-white/90 px-3 py-2 text-xs font-semibold text-slate-700 shadow-md transition hover:bg-white dark:bg-slate-800/90 dark:text-slate-300 dark:hover:bg-slate-800"
+          @click="handleLogout"
+        >
+          <LogOut :size="14" />
+          Logout {{ currentUser }}
+        </button>
+      </div>
 
       <ChatSidebar
         :class="[selectedContactId ? 'hidden md:flex' : 'flex']"
@@ -126,7 +147,7 @@ const handleAuthSubmit = async (payload: { username: string; password: string; m
           @back="handleLeaveConversation"
         />
 
-        <div class="border-b border-white/60 bg-white/65 px-4 py-2 text-xs font-medium text-slate-500 backdrop-blur-sm">
+        <div class="border-b border-white/60 bg-white/65 px-4 py-2 text-xs font-medium text-slate-500 backdrop-blur-sm dark:border-slate-700/60 dark:bg-slate-900/65 dark:text-slate-400">
           <span class="inline-flex items-center gap-2">
             <Wifi v-if="connectionState === 'connected'" :size="14" class="text-emerald-500" />
             <WifiOff v-else :size="14" class="text-amber-500" />
@@ -160,11 +181,11 @@ const handleAuthSubmit = async (payload: { username: string; password: string; m
 
       <div v-else class="flex flex-1 items-center justify-center px-6">
         <div class="text-center">
-          <div class="mx-auto mb-4 flex size-16 items-center justify-center rounded-full bg-white/80 shadow-lg">
+          <div class="mx-auto mb-4 flex size-16 items-center justify-center rounded-full bg-white/80 shadow-lg dark:bg-slate-800/80">
             <MessageCirclePlus :size="32" class="text-indigo-600" />
           </div>
-          <p class="font-medium text-slate-700">Choose a conversation</p>
-          <p class="mt-1 text-sm text-slate-500">Open a friend from the sidebar to start a WhatsApp-like 1:1 chat.</p>
+          <p class="font-medium text-slate-700 dark:text-slate-300">Choose a conversation</p>
+          <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Open a friend from the sidebar to start a WhatsApp-like 1:1 chat.</p>
         </div>
       </div>
     </div>

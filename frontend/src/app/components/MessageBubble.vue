@@ -109,14 +109,14 @@ onBeforeUnmount(() => {
           'rounded-3xl px-4 py-3 shadow-sm',
           message.isMine
             ? 'rounded-br-sm bg-gradient-to-br from-indigo-600 to-violet-600 text-white'
-            : 'rounded-bl-sm border border-white/90 bg-white/92 text-slate-900',
+            : 'rounded-bl-sm border border-white/90 bg-white/92 text-slate-900 dark:border-slate-700/80 dark:bg-slate-800/90 dark:text-slate-100',
           message.isOptimistic ? 'opacity-90' : '',
         ]"
       >
         <p v-if="message.content" class="whitespace-pre-wrap break-words text-sm leading-6">{{ message.content }}</p>
 
         <div v-if="message.attachments.length" :class="['space-y-2', message.content ? 'mt-3' : '']">
-          <div v-for="attachment in message.attachments" :key="attachment.id" class="overflow-hidden rounded-lg bg-black/5">
+          <div v-for="attachment in message.attachments" :key="attachment.id" class="overflow-hidden rounded-lg bg-black/5 dark:bg-white/5">
             <img
               v-if="attachment.kind === 'image' && objectUrls[attachment.id]"
               :src="objectUrls[attachment.id]"
@@ -143,7 +143,7 @@ onBeforeUnmount(() => {
             />
 
             <button
-              class="flex w-full items-center gap-3 px-3 py-2 text-left text-xs transition-colors hover:bg-black/5"
+              class="flex w-full items-center gap-3 px-3 py-2 text-left text-xs transition-colors hover:bg-black/5 dark:hover:bg-white/5"
               type="button"
               @click="handleDownload(attachment)"
             >
@@ -160,7 +160,7 @@ onBeforeUnmount(() => {
         <div
           :class="[
             'mt-2 flex items-center gap-1 text-[11px]',
-            message.isMine ? 'justify-end text-indigo-100/90' : 'justify-end text-slate-400',
+            message.isMine ? 'justify-end text-indigo-100/90' : 'justify-end text-slate-400 dark:text-slate-500',
           ]"
         >
           <span>{{ formatMessageTime(message.timestamp) }}</span>

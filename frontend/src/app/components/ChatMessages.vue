@@ -87,19 +87,19 @@ watch(
 <template>
   <div
     ref="scrollRef"
-    class="flex-1 overflow-y-auto bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.8),rgba(224,231,255,0.22)_40%,rgba(240,249,255,0.35)_100%)]"
+    class="messages-bg flex-1 overflow-y-auto"
     @scroll="handleScroll"
   >
     <div class="flex min-h-full flex-col p-4 md:p-6">
-      <div v-if="isLoadingMore" class="mb-4 text-center text-xs font-medium uppercase tracking-[0.18em] text-indigo-500">
+      <div v-if="isLoadingMore" class="mb-4 text-center text-xs font-medium uppercase tracking-[0.18em] text-indigo-500 dark:text-indigo-400">
         Loading older messages
       </div>
 
       <MessageBubble v-for="message in messages" :key="message.id" :message="message" :attachment-token="attachmentToken" />
 
       <div v-if="isPeerTyping" class="mb-4 flex justify-start">
-        <div class="rounded-3xl rounded-bl-sm border border-white/80 bg-white/90 px-4 py-3 shadow-sm">
-          <div class="flex items-center gap-2 text-sm font-medium text-emerald-700">
+        <div class="rounded-3xl rounded-bl-sm border border-white/80 bg-white/90 px-4 py-3 shadow-sm dark:border-slate-700/70 dark:bg-slate-800/90">
+          <div class="flex items-center gap-2 text-sm font-medium text-emerald-700 dark:text-emerald-400">
             <span>{{ typingLabel || 'typing...' }}</span>
             <span class="flex items-center gap-1">
               <span class="h-1.5 w-1.5 animate-bounce rounded-full bg-emerald-500" />
@@ -110,7 +110,7 @@ watch(
         </div>
       </div>
 
-      <div v-if="!messages.length && !isLoadingMore" class="my-auto text-center text-sm text-slate-500">
+      <div v-if="!messages.length && !isLoadingMore" class="my-auto text-center text-sm text-slate-500 dark:text-slate-400">
         No messages yet. Start the conversation.
       </div>
     </div>

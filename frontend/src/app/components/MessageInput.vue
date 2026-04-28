@@ -153,24 +153,24 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="border-t border-white/70 bg-white/85 p-4 shadow-lg backdrop-blur-sm">
+  <div class="border-t border-white/70 bg-white/85 p-4 shadow-lg backdrop-blur-sm dark:border-slate-700/60 dark:bg-slate-900/85">
     <div v-if="props.attachments.length || props.isUploadingAttachments" class="mb-3 ml-0 flex flex-wrap gap-2 md:ml-20">
       <div
         v-for="attachment in props.attachments"
         :key="attachment.id"
-        class="flex max-w-full items-center gap-2 rounded-lg border border-indigo-100 bg-white px-3 py-2 text-xs text-slate-700 shadow-sm"
+        class="flex max-w-full items-center gap-2 rounded-lg border border-indigo-100 bg-white px-3 py-2 text-xs text-slate-700 shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
       >
-        <FileText :size="14" class="shrink-0 text-indigo-500" />
+        <FileText :size="14" class="shrink-0 text-indigo-500 dark:text-indigo-400" />
         <span class="max-w-48 truncate">{{ attachment.filename }}</span>
         <button
-          class="inline-flex size-5 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
+          class="inline-flex size-5 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-700 dark:hover:text-slate-300"
           type="button"
           @click="emit('removeAttachment', attachment.id)"
         >
           <X :size="12" />
         </button>
       </div>
-      <span v-if="props.isUploadingAttachments" class="rounded-lg border border-indigo-100 bg-indigo-50 px-3 py-2 text-xs font-medium text-indigo-600">
+      <span v-if="props.isUploadingAttachments" class="rounded-lg border border-indigo-100 bg-indigo-50 px-3 py-2 text-xs font-medium text-indigo-600 dark:border-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-400">
         Uploading...
       </span>
     </div>
@@ -178,15 +178,15 @@ onBeforeUnmount(() => {
       <input ref="fileInputRef" class="hidden" multiple type="file" @change="handleFileChange" />
       <button
         :disabled="props.disabled || props.isUploadingAttachments || props.attachments.length >= 10"
-        class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-medium transition-colors hover:bg-indigo-50 disabled:pointer-events-none disabled:opacity-50"
+        class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-medium transition-colors hover:bg-indigo-50 disabled:pointer-events-none disabled:opacity-50 dark:hover:bg-indigo-900/40"
         type="button"
         @click="openFilePicker"
       >
-        <Paperclip :size="20" class="text-indigo-600" />
+        <Paperclip :size="20" class="text-indigo-600 dark:text-indigo-400" />
       </button>
 
-      <button class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-medium transition-colors hover:bg-indigo-50">
-        <Smile :size="20" class="text-indigo-600" />
+      <button class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-medium transition-colors hover:bg-indigo-50 dark:hover:bg-indigo-900/40">
+        <Smile :size="20" class="text-indigo-600 dark:text-indigo-400" />
       </button>
 
       <textarea
@@ -194,7 +194,7 @@ onBeforeUnmount(() => {
         v-model="message"
         :disabled="props.disabled"
         :placeholder="props.placeholder"
-        class="min-h-[44px] max-h-40 flex-1 resize-none rounded-3xl border border-indigo-200 bg-white px-4 py-3 text-sm text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+        class="min-h-[44px] max-h-40 flex-1 resize-none rounded-3xl border border-indigo-200 bg-white px-4 py-3 text-sm text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-500 dark:focus-visible:ring-indigo-600 dark:disabled:bg-slate-700 dark:disabled:text-slate-500"
         rows="1"
         @keydown="handleKeyDown"
       />
@@ -208,7 +208,7 @@ onBeforeUnmount(() => {
         <Send :size="20" />
       </button>
     </div>
-    <p class="mt-2 ml-20 text-xs text-indigo-400">
+    <p class="mt-2 ml-20 text-xs text-indigo-400 dark:text-indigo-500">
       Enter para enviar • Shift + Enter para quebrar linha
     </p>
   </div>

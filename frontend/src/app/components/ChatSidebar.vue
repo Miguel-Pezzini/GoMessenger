@@ -66,15 +66,15 @@ const submitFriendRequest = () => {
 </script>
 
 <template>
-  <aside class="z-10 flex h-screen w-full max-w-[26rem] flex-col border-r border-white/70 bg-white/80 shadow-xl backdrop-blur-sm md:w-[26rem]">
-    <div class="border-b border-white/60 bg-white/70 p-4 backdrop-blur-sm">
-      <div class="mb-3 flex items-center gap-2 rounded-2xl bg-indigo-950 px-3 py-2 text-sm font-medium text-indigo-50">
+  <aside class="z-10 flex h-screen w-full max-w-[26rem] flex-col border-r border-white/70 bg-white/80 shadow-xl backdrop-blur-sm dark:border-slate-700/50 dark:bg-slate-900/85 md:w-[26rem]">
+    <div class="border-b border-white/60 bg-white/70 p-4 backdrop-blur-sm dark:border-slate-700/50 dark:bg-slate-800/70">
+      <div class="mb-3 flex items-center gap-2 rounded-2xl bg-indigo-950 px-3 py-2 text-sm font-medium text-indigo-50 dark:bg-indigo-900">
         <UserRoundCheck :size="16" />
         Friends
       </div>
 
       <form class="mb-3 space-y-2" @submit.prevent="submitFriendRequest">
-        <label class="block text-xs font-semibold uppercase tracking-[0.18em] text-indigo-500">
+        <label class="block text-xs font-semibold uppercase tracking-[0.18em] text-indigo-500 dark:text-indigo-400">
           Add friend by code
         </label>
         <div class="flex gap-2">
@@ -84,11 +84,11 @@ const submitFriendRequest = () => {
             inputmode="numeric"
             autocomplete="off"
             placeholder="6–8 digit friend code"
-            class="min-w-0 flex-1 rounded-xl border border-indigo-200 bg-white px-3 py-2 text-sm text-gray-900 outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+            class="min-w-0 flex-1 rounded-xl border border-indigo-200 bg-white px-3 py-2 text-sm text-gray-900 outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 dark:border-indigo-800 dark:bg-slate-700 dark:text-slate-100 dark:focus:border-indigo-500 dark:focus:ring-indigo-900"
           />
           <button
             type="submit"
-            class="inline-flex h-10 shrink-0 items-center justify-center rounded-xl bg-indigo-600 px-4 text-sm font-semibold text-white transition hover:bg-indigo-700"
+            class="inline-flex h-10 shrink-0 items-center justify-center rounded-xl bg-indigo-600 px-4 text-sm font-semibold text-white transition hover:bg-indigo-700 dark:bg-indigo-700 dark:hover:bg-indigo-600"
           >
             <UserPlus :size="16" class="mr-2" />
             Send
@@ -97,43 +97,43 @@ const submitFriendRequest = () => {
       </form>
 
       <div class="relative">
-        <Search :size="16" class="absolute left-3 top-1/2 -translate-y-1/2 text-indigo-400" />
+        <Search :size="16" class="absolute left-3 top-1/2 -translate-y-1/2 text-indigo-400 dark:text-indigo-500" />
         <input
           v-model="search"
           type="text"
           placeholder="Search friends"
-          class="flex h-10 w-full rounded-xl border border-indigo-200 bg-white px-3 py-2 pl-9 text-sm text-gray-900 outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+          class="flex h-10 w-full rounded-xl border border-indigo-200 bg-white px-3 py-2 pl-9 text-sm text-gray-900 outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 dark:border-indigo-800 dark:bg-slate-700 dark:text-slate-100 dark:focus:border-indigo-500 dark:focus:ring-indigo-900"
         />
       </div>
 
-      <p v-if="actionError" class="mt-3 rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">
+      <p v-if="actionError" class="mt-3 rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-900/30 dark:text-red-400">
         {{ actionError }}
       </p>
-      <p v-if="actionSuccess" class="mt-3 rounded-xl bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+      <p v-if="actionSuccess" class="mt-3 rounded-xl bg-emerald-50 px-3 py-2 text-sm text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
         {{ actionSuccess }}
       </p>
-      <div v-if="currentUsername" class="mt-3 space-y-1 text-xs text-slate-500">
+      <div v-if="currentUsername" class="mt-3 space-y-1 text-xs text-slate-500 dark:text-slate-400">
         <p>
-          Logged in as <span class="font-semibold text-slate-700">{{ currentUsername }}</span>
+          Logged in as <span class="font-semibold text-slate-700 dark:text-slate-300">{{ currentUsername }}</span>
         </p>
         <p v-if="myFriendCode">
           Your friend code:
-          <span class="font-mono font-semibold tracking-wide text-slate-700">{{ myFriendCode }}</span>
+          <span class="font-mono font-semibold tracking-wide text-slate-700 dark:text-slate-300">{{ myFriendCode }}</span>
         </p>
       </div>
     </div>
 
-    <div class="border-b border-white/60 bg-white/40 px-4 py-3">
+    <div class="border-b border-white/60 bg-white/40 px-4 py-3 dark:border-slate-700/50 dark:bg-slate-800/40">
       <div class="mb-2 flex items-center justify-between">
-        <h2 class="text-sm font-semibold text-slate-800">Pending requests</h2>
-        <span class="rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-semibold text-indigo-700">
+        <h2 class="text-sm font-semibold text-slate-800 dark:text-slate-200">Pending requests</h2>
+        <span class="rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-semibold text-indigo-700 dark:bg-indigo-900/60 dark:text-indigo-300">
           {{ pendingRequests.length }}
         </span>
       </div>
 
       <div
         v-if="pendingRequests.length === 0"
-        class="rounded-2xl border border-dashed border-indigo-200 px-3 py-4 text-sm text-slate-500"
+        class="rounded-2xl border border-dashed border-indigo-200 px-3 py-4 text-sm text-slate-500 dark:border-indigo-800 dark:text-slate-400"
       >
         No pending requests.
       </div>
@@ -142,26 +142,26 @@ const submitFriendRequest = () => {
         <div
           v-for="request in pendingRequests"
           :key="request.id"
-          class="rounded-2xl border border-indigo-100 bg-white px-3 py-3 shadow-sm"
+          class="rounded-2xl border border-indigo-100 bg-white px-3 py-3 shadow-sm dark:border-slate-700 dark:bg-slate-800"
         >
           <div class="flex items-start justify-between gap-3">
             <div class="min-w-0">
-              <p class="truncate text-sm font-semibold text-slate-900">
+              <p class="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">
                 {{ request.senderUsername?.trim() || request.senderId }}
               </p>
-              <p class="mt-1 text-xs text-slate-500">Sent {{ formatRequestTimestamp(request.createdAt) }}</p>
+              <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Sent {{ formatRequestTimestamp(request.createdAt) }}</p>
             </div>
             <div class="flex shrink-0 items-center gap-1">
               <button
                 type="button"
-                class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 transition hover:bg-emerald-200"
+                class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 transition hover:bg-emerald-200 dark:bg-emerald-900/40 dark:text-emerald-400 dark:hover:bg-emerald-900/70"
                 @click="emit('acceptRequest', request.id)"
               >
                 <Check :size="16" />
               </button>
               <button
                 type="button"
-                class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-rose-100 text-rose-700 transition hover:bg-rose-200"
+                class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-rose-100 text-rose-700 transition hover:bg-rose-200 dark:bg-rose-900/40 dark:text-rose-400 dark:hover:bg-rose-900/70"
                 @click="emit('declineRequest', request.id)"
               >
                 <X :size="16" />
@@ -174,17 +174,17 @@ const submitFriendRequest = () => {
 
     <div class="flex-1 overflow-y-auto">
       <div class="flex items-center justify-between px-4 py-3">
-        <h2 class="text-sm font-semibold text-slate-800">Friends list</h2>
-        <span class="rounded-full bg-slate-200 px-2 py-0.5 text-xs font-semibold text-slate-700">
+        <h2 class="text-sm font-semibold text-slate-800 dark:text-slate-200">Friends list</h2>
+        <span class="rounded-full bg-slate-200 px-2 py-0.5 text-xs font-semibold text-slate-700 dark:bg-slate-700 dark:text-slate-300">
           {{ contacts.length }}
         </span>
       </div>
 
-      <div v-if="isLoading" class="px-4 py-8 text-sm text-slate-500">
+      <div v-if="isLoading" class="px-4 py-8 text-sm text-slate-500 dark:text-slate-400">
         Loading friends...
       </div>
 
-      <div v-else-if="filteredContacts.length === 0" class="px-4 py-8 text-sm text-slate-500">
+      <div v-else-if="filteredContacts.length === 0" class="px-4 py-8 text-sm text-slate-500 dark:text-slate-400">
         {{ contacts.length === 0 ? 'No friends yet. Send a request to start.' : 'No friends match your search.' }}
       </div>
 
@@ -195,8 +195,8 @@ const submitFriendRequest = () => {
           :class="[
             'flex items-center gap-3 rounded-3xl border p-3 transition',
             selectedContactId === contact.id
-              ? 'border-indigo-300 bg-indigo-100/75 shadow-sm'
-              : 'border-transparent bg-white/75 hover:border-indigo-100 hover:bg-white',
+              ? 'border-indigo-300 bg-indigo-100/75 shadow-sm dark:border-indigo-700 dark:bg-indigo-900/40'
+              : 'border-transparent bg-white/75 hover:border-indigo-100 hover:bg-white dark:bg-slate-800/50 dark:hover:border-slate-600 dark:hover:bg-slate-800',
           ]"
         >
           <button
@@ -205,29 +205,29 @@ const submitFriendRequest = () => {
             @click="emit('selectContact', contact.id)"
           >
             <div class="relative">
-              <div class="flex size-11 items-center justify-center overflow-hidden rounded-full bg-indigo-200 font-semibold text-indigo-800 ring-2 ring-white">
+              <div class="flex size-11 items-center justify-center overflow-hidden rounded-full bg-indigo-200 font-semibold text-indigo-800 ring-2 ring-white dark:bg-indigo-900 dark:text-indigo-300 dark:ring-slate-800">
                 <img v-if="contact.avatar" :src="contact.avatar" :alt="contact.name" class="h-full w-full object-cover" />
                 <span v-else>{{ contact.name.slice(0, 2).toUpperCase() }}</span>
               </div>
-              <span v-if="contact.online" class="absolute bottom-0 right-0 size-3 rounded-full border-2 border-white bg-emerald-500" />
+              <span v-if="contact.online" class="absolute bottom-0 right-0 size-3 rounded-full border-2 border-white bg-emerald-500 dark:border-slate-800" />
             </div>
 
             <div class="min-w-0 flex-1">
               <div class="mb-1 flex items-center justify-between gap-2">
                 <div class="flex min-w-0 items-center gap-2">
-                  <h3 class="truncate text-sm font-semibold text-slate-900">{{ contact.name }}</h3>
+                  <h3 class="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">{{ contact.name }}</h3>
                   <span
                     v-if="contact.isCurrentChat"
-                    class="rounded-full bg-emerald-50 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-700"
+                    class="rounded-full bg-emerald-50 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400"
                   >
                     Here
                   </span>
                 </div>
-                <span class="shrink-0 text-xs font-medium text-indigo-500">{{ contact.timestamp }}</span>
+                <span class="shrink-0 text-xs font-medium text-indigo-500 dark:text-indigo-400">{{ contact.timestamp }}</span>
               </div>
 
               <div class="flex items-center justify-between gap-3">
-                <p :class="['truncate text-xs', contact.isTyping ? 'font-medium text-emerald-600' : 'text-slate-500']">
+                <p :class="['truncate text-xs', contact.isTyping ? 'font-medium text-emerald-600 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400']">
                   {{ contact.lastMessage }}
                 </p>
                 <span
@@ -242,7 +242,7 @@ const submitFriendRequest = () => {
 
           <button
             type="button"
-            class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-rose-50 hover:text-rose-600"
+            class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-rose-50 hover:text-rose-600 dark:text-slate-500 dark:hover:bg-rose-900/30 dark:hover:text-rose-400"
             @click="emit('removeFriend', contact.id)"
           >
             <Trash2 :size="16" />
