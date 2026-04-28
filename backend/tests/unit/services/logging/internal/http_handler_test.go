@@ -16,7 +16,8 @@ import (
 )
 
 type repositoryStub struct {
-	events []logsvc.StoredEvent
+	events     []logsvc.StoredEvent
+	lastFilter logsvc.LogFilter
 }
 
 func (r *repositoryStub) Append(_ context.Context, event logsvc.StoredEvent) error {
@@ -25,6 +26,12 @@ func (r *repositoryStub) Append(_ context.Context, event logsvc.StoredEvent) err
 }
 
 func (r *repositoryStub) ListRecent(_ context.Context, limit int) ([]logsvc.StoredEvent, error) {
+	return r.List(context.Background(), logsvc.LogFilter{Limit: limit})
+}
+
+func (r *repositoryStub) List(_ context.Context, filter logsvc.LogFilter) ([]logsvc.StoredEvent, error) {
+	r.lastFilter = filter
+	limit := filter.Limit
 	if limit > len(r.events) {
 		limit = len(r.events)
 	}
@@ -74,6 +81,31 @@ func TestListLogsReturnsStoredEvents(t *testing.T) {
 	}
 	if len(events) != 1 {
 		t.Fatalf("expected one event, got %d", len(events))
+	}
+}
+
+func TestListLogsParsesFilters(t *testing.T) {
+	repo := &repositoryStub{}
+	handler := logsvc.NewHandler(logsvc.NewService(repo), security.NewOriginValidator(nil))
+	req := httptest.NewRequest(http.MethodGet, "/admin/logs?limit=25&service=auth&category=audit&status=success&event_type=user.logged_in&actor_user_id=user-1&q=login", nil)
+	rec := httptest.NewRecorder()
+
+	handler.ListLogs(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rec.Code)
+	}
+	expected := logsvc.LogFilter{
+		Limit:       25,
+		Service:     "auth",
+		Category:    "audit",
+		Status:      "success",
+		EventType:   "user.logged_in",
+		ActorUserID: "user-1",
+		Query:       "login",
+	}
+	if repo.lastFilter != expected {
+		t.Fatalf("expected filter %#v, got %#v", expected, repo.lastFilter)
 	}
 }
 

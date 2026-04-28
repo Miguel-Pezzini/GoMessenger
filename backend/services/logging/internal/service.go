@@ -39,6 +39,10 @@ func (s *Service) ListRecent(ctx context.Context, limit int) ([]StoredEvent, err
 	return s.repo.ListRecent(ctx, limit)
 }
 
+func (s *Service) List(ctx context.Context, filter LogFilter) ([]StoredEvent, error) {
+	return s.repo.List(ctx, filter)
+}
+
 func (s *Service) Subscribe() (<-chan StoredEvent, func()) {
 	ch := make(chan StoredEvent, 16)
 

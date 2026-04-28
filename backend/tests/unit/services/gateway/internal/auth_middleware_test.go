@@ -150,3 +150,54 @@ func TestWrapRejectsMissingTokenWithJSONError(t *testing.T) {
 		t.Fatalf("expected missing token error, got %q", body["error"])
 	}
 }
+
+func TestNewRouterProtectsAdminAliases(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("X-User-Role") != "ADMIN" {
+			t.Fatalf("expected admin role header, got %q", r.Header.Get("X-User-Role"))
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer upstream.Close()
+
+	router, err := NewRouter(Config{
+		AuthURL:       upstream.URL,
+		FriendsURL:    upstream.URL,
+		WebsocketURL:  upstream.URL,
+		ChatURL:       upstream.URL,
+		MediaURL:      upstream.URL,
+		PresenceURL:   upstream.URL,
+		LoggingURL:    upstream.URL,
+		AllowedOrigin: "http://localhost:5173",
+		JWTSecret:     "test-secret",
+	})
+	if err != nil {
+		t.Fatalf("new router: %v", err)
+	}
+
+	for _, path := range []string{"/admin/logs", "/admin/logs/ws", "/admin/presence/active"} {
+		t.Run(path+" rejects user", func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, path, nil)
+			req.Header.Set("Authorization", "Bearer "+makeToken(t, "user-1", "USER", "test-secret", time.Hour))
+			rec := httptest.NewRecorder()
+
+			router.ServeHTTP(rec, req)
+
+			if rec.Code != http.StatusForbidden {
+				t.Fatalf("expected 403, got %d", rec.Code)
+			}
+		})
+
+		t.Run(path+" allows admin", func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, path, nil)
+			req.Header.Set("Authorization", "Bearer "+makeToken(t, "admin-1", "ADMIN", "test-secret", time.Hour))
+			rec := httptest.NewRecorder()
+
+			router.ServeHTTP(rec, req)
+
+			if rec.Code != http.StatusNoContent {
+				t.Fatalf("expected 204, got %d", rec.Code)
+			}
+		})
+	}
+}

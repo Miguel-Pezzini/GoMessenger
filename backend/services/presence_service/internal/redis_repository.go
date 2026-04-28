@@ -45,6 +45,53 @@ func (r *RedisRepository) Get(ctx context.Context, userID string) (Presence, err
 	return presence, nil
 }
 
+func (r *RedisRepository) ListActive(ctx context.Context, limit int) ([]Presence, error) {
+	if limit <= 0 {
+		limit = 100
+	}
+	if limit > 200 {
+		limit = 200
+	}
+
+	var cursor uint64
+	active := make([]Presence, 0, limit)
+	for {
+		keys, nextCursor, err := r.rdb.Scan(ctx, cursor, r.keyPrefix+"*", 100).Result()
+		if err != nil {
+			return nil, err
+		}
+
+		for _, key := range keys {
+			payload, err := r.rdb.Get(ctx, key).Bytes()
+			if errors.Is(err, redisv9.Nil) {
+				continue
+			}
+			if err != nil {
+				return nil, err
+			}
+
+			var presence Presence
+			if err := json.Unmarshal(payload, &presence); err != nil {
+				log.Printf("presence: invalid stored presence at %s: %v", key, err)
+				continue
+			}
+			if presence.Status != StatusOnline {
+				continue
+			}
+
+			active = append(active, presence)
+			if len(active) >= limit {
+				return active, nil
+			}
+		}
+
+		cursor = nextCursor
+		if cursor == 0 {
+			return active, nil
+		}
+	}
+}
+
 func (r *RedisRepository) Publish(ctx context.Context, channel string, presence Presence) error {
 	payload, err := json.Marshal(presence)
 	if err != nil {

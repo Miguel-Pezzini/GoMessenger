@@ -8,12 +8,21 @@ import (
 var ErrPresenceNotFound = errors.New("presence not found")
 
 type Service struct {
-	repo          Repository
-	updateChannel string
+	repo           Repository
+	updateChannel  string
+	usernameLookup UsernameLookup
 }
 
-func NewService(repo Repository, updateChannel string) *Service {
-	return &Service{repo: repo, updateChannel: updateChannel}
+type UsernameLookup interface {
+	LookupUsernameByUserID(ctx context.Context, userID string) (string, error)
+}
+
+func NewService(repo Repository, updateChannel string, usernameLookup ...UsernameLookup) *Service {
+	var lookup UsernameLookup
+	if len(usernameLookup) > 0 {
+		lookup = usernameLookup[0]
+	}
+	return &Service{repo: repo, updateChannel: updateChannel, usernameLookup: lookup}
 }
 
 func (s *Service) HandleLifecycleEvent(ctx context.Context, event LifecycleEvent) (Presence, error) {
@@ -65,4 +74,30 @@ func (s *Service) GetPresence(ctx context.Context, userID string) (Presence, err
 	}
 
 	return s.repo.Get(ctx, userID)
+}
+
+func (s *Service) ListActiveUsers(ctx context.Context, limit int) (ActiveUsersResponse, error) {
+	presences, err := s.repo.ListActive(ctx, limit)
+	if err != nil {
+		return ActiveUsersResponse{}, err
+	}
+
+	users := make([]ActiveUser, 0, len(presences))
+	for _, presence := range presences {
+		user := ActiveUser{
+			UserID:        presence.UserID,
+			Status:        presence.Status,
+			LastSeen:      presence.LastSeen,
+			CurrentChatID: presence.CurrentChatID,
+		}
+		if s.usernameLookup != nil {
+			username, err := s.usernameLookup.LookupUsernameByUserID(ctx, presence.UserID)
+			if err == nil {
+				user.Username = username
+			}
+		}
+		users = append(users, user)
+	}
+
+	return ActiveUsersResponse{Users: users, Count: len(users)}, nil
 }

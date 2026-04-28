@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { useTemplateRef } from 'vue';
-import { LogOut, MessageCirclePlus, Moon, Sun, Wifi, WifiOff } from 'lucide-vue-next';
+import { computed, onBeforeUnmount, onMounted, ref, useTemplateRef } from 'vue';
+import { BarChart3, LogOut, MessageCirclePlus, Moon, ShieldAlert, Sun, Wifi, WifiOff } from 'lucide-vue-next';
 import { useTheme } from './chat/useTheme.ts';
 
+import AdminDashboard from './components/AdminDashboard.vue';
 import AuthCard from './components/AuthCard.vue';
 import ChatHeader from './components/ChatHeader.vue';
 import ChatMessages from './components/ChatMessages.vue';
@@ -31,6 +32,7 @@ const {
   currentMessages,
   currentUser,
   currentUserId,
+  currentUserRole,
   currentFriendCode,
   draftAttachments,
   handleAcceptRequest,
@@ -62,6 +64,21 @@ const {
   acknowledgeVisibleConversation,
 } = useChatController();
 
+const currentPath = ref(window.location.pathname);
+const isAdminPath = computed(() => currentPath.value === '/admin');
+const isAdmin = computed(() => currentUserRole.value === 'ADMIN');
+
+const navigateTo = (path: string) => {
+  if (window.location.pathname !== path) {
+    window.history.pushState({}, '', path);
+  }
+  currentPath.value = path;
+};
+
+const syncPath = () => {
+  currentPath.value = window.location.pathname;
+};
+
 const handleAuthSubmit = async (payload: { username: string; password: string; mode: AuthMode }) => {
   const result = await submitAuth(payload);
 
@@ -73,6 +90,14 @@ const handleAuthSubmit = async (payload: { username: string; password: string; m
     authCardRef.value?.setSuccess(result.success);
   }
 };
+
+onMounted(() => {
+  window.addEventListener('popstate', syncPath);
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener('popstate', syncPath);
+});
 </script>
 
 <template>
@@ -93,6 +118,46 @@ const handleAuthSubmit = async (payload: { username: string; password: string; m
       <AuthCard ref="authCardRef" :mode="authMode" @submit="handleAuthSubmit" @toggleMode="toggleAuthMode" />
     </div>
 
+    <AdminDashboard
+      v-else-if="isAdminPath && isAdmin"
+      :token="sessionToken"
+      :username="currentUser"
+      :is-dark="isDark"
+      @logout="handleLogout"
+      @toggleTheme="toggleTheme"
+      @goChat="navigateTo('/')"
+    />
+
+    <div
+      v-else-if="isAdminPath"
+      class="flex min-h-screen items-center justify-center bg-slate-100 px-4 py-8 text-slate-900 dark:bg-slate-950 dark:text-slate-100"
+    >
+      <section class="w-full max-w-md rounded-lg border border-slate-200 bg-white p-6 text-center shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-rose-50 text-rose-600 dark:bg-rose-500/10 dark:text-rose-300">
+          <ShieldAlert :size="24" />
+        </div>
+        <h1 class="text-xl font-semibold text-slate-950 dark:text-white">Access denied</h1>
+        <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">Admin privileges are required for this route.</p>
+        <div class="mt-5 flex justify-center gap-2">
+          <button
+            type="button"
+            class="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 px-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+            @click="navigateTo('/')"
+          >
+            Chat
+          </button>
+          <button
+            type="button"
+            class="inline-flex h-10 items-center gap-2 rounded-lg bg-slate-950 px-3 text-sm font-semibold text-white transition hover:bg-slate-800 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-200"
+            @click="handleLogout"
+          >
+            <LogOut :size="16" />
+            Logout
+          </button>
+        </div>
+      </section>
+    </div>
+
     <div
       v-else
       class="chat-bg relative mx-auto flex h-screen max-w-[1600px] overflow-hidden shadow-2xl"
@@ -100,6 +165,15 @@ const handleAuthSubmit = async (payload: { username: string; password: string; m
       <div class="pointer-events-none absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.35)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.28)_1px,transparent_1px)] bg-[size:26px_26px] opacity-25 dark:opacity-5" />
 
       <div class="absolute right-3 top-3 z-20 flex items-center gap-2">
+        <button
+          v-if="isAdmin"
+          type="button"
+          class="inline-flex h-9 items-center gap-2 rounded-lg bg-white/90 px-3 text-xs font-semibold text-slate-700 shadow-md transition hover:bg-white dark:bg-slate-800/90 dark:text-slate-300 dark:hover:bg-slate-800"
+          @click="navigateTo('/admin')"
+        >
+          <BarChart3 :size="14" />
+          Admin
+        </button>
         <button
           type="button"
           class="inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-white/90 text-slate-600 shadow-md transition hover:bg-white dark:bg-slate-800/90 dark:text-slate-400 dark:hover:bg-slate-800"

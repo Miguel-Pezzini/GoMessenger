@@ -8,6 +8,7 @@ import (
 
 var (
 	gatewayBaseURL  = httpBaseURL(envOrDefault("GATEWAY_ADDR", ":8080"))
+	authBaseURL     = httpBaseURL(envOrDefault("AUTH_UPSTREAM_URL", "http://localhost:50051"))
 	loggingBaseURL  = gatewayBaseURL
 	presenceBaseURL = gatewayBaseURL
 )

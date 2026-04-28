@@ -92,6 +92,7 @@ export interface StoredSession {
   username: string;
   userId: string;
   friendCode: string;
+  role: string;
 }
 
 export interface ContactListItem {

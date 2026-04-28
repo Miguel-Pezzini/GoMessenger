@@ -12,8 +12,10 @@ type repositoryStub struct {
 	publishedChannel  string
 	publishedPresence Presence
 	getPresence       Presence
+	activePresence    []Presence
 	saveErr           error
 	getErr            error
+	listActiveErr     error
 	publishErr        error
 }
 
@@ -24,6 +26,13 @@ func (r *repositoryStub) Save(_ context.Context, presence Presence) error {
 
 func (r *repositoryStub) Get(_ context.Context, _ string) (Presence, error) {
 	return r.getPresence, r.getErr
+}
+
+func (r *repositoryStub) ListActive(_ context.Context, _ int) ([]Presence, error) {
+	if r.listActiveErr != nil {
+		return nil, r.listActiveErr
+	}
+	return append([]Presence(nil), r.activePresence...), nil
 }
 
 func (r *repositoryStub) Publish(_ context.Context, channel string, presence Presence) error {
@@ -201,6 +210,42 @@ func TestGetPresencePropagatesRepositoryError(t *testing.T) {
 	_, err := service.GetPresence(context.Background(), "user-a")
 	if !errors.Is(err, expectedErr) {
 		t.Fatalf("expected %v, got %v", expectedErr, err)
+	}
+}
+
+type usernameLookupStub struct {
+	names map[string]string
+}
+
+func (u usernameLookupStub) LookupUsernameByUserID(_ context.Context, userID string) (string, error) {
+	name, ok := u.names[userID]
+	if !ok {
+		return "", errors.New("not found")
+	}
+	return name, nil
+}
+
+func TestListActiveUsersEnrichesUsernames(t *testing.T) {
+	repo := &repositoryStub{activePresence: []Presence{
+		{UserID: "user-a", Status: StatusOnline, CurrentChatID: "user-b"},
+		{UserID: "user-b", Status: StatusOnline},
+	}}
+	service := NewService(repo, "presence.updated", usernameLookupStub{names: map[string]string{
+		"user-a": "Alice",
+	}})
+
+	got, err := service.ListActiveUsers(context.Background(), 100)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if got.Count != 2 {
+		t.Fatalf("expected count 2, got %d", got.Count)
+	}
+	if got.Users[0].Username != "Alice" {
+		t.Fatalf("expected username Alice, got %q", got.Users[0].Username)
+	}
+	if got.Users[1].Username != "" {
+		t.Fatalf("expected missing username to be omitted, got %q", got.Users[1].Username)
 	}
 }
 

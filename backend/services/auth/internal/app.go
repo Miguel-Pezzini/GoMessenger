@@ -12,13 +12,13 @@ import (
 )
 
 type Config struct {
-	Address             string
-	MongoURI            string
-	MongoDatabase       string
-	RedisAddr           string
-	AuditStream         string
-	JWTSecret           string
-	JWTExpiry           time.Duration
+	Address              string
+	MongoURI             string
+	MongoDatabase        string
+	RedisAddr            string
+	AuditStream          string
+	JWTSecret            string
+	JWTExpiry            time.Duration
 	InternalServiceToken string
 }
 
@@ -74,6 +74,7 @@ func Run() error {
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /auth/register", handler.Register)
 	mux.HandleFunc("POST /auth/login", handler.Login)
+	mux.HandleFunc("POST /internal/users/admin", handler.BootstrapAdmin)
 	mux.HandleFunc("GET /internal/users/by-friend-code/{code}", handler.LookupUserByFriendCode)
 	mux.HandleFunc("GET /internal/users/username/{userId}", handler.LookupUsernameByUserID)
 

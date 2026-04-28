@@ -17,6 +17,19 @@ type presenceResponse struct {
 	CurrentChatID string     `json:"current_chat_id"`
 }
 
+type activeUserResponse struct {
+	UserID        string     `json:"user_id"`
+	Username      string     `json:"username"`
+	Status        string     `json:"status"`
+	LastSeen      *time.Time `json:"last_seen"`
+	CurrentChatID string     `json:"current_chat_id"`
+}
+
+type activeUsersResponse struct {
+	Users []activeUserResponse `json:"users"`
+	Count int                  `json:"count"`
+}
+
 func TestGetPresenceReturnsNotFoundForUnknownUser(t *testing.T) {
 	t.Parallel()
 
@@ -106,6 +119,72 @@ func TestPresenceTracksCurrentChatLifecycle(t *testing.T) {
 	if closedPresence.Status != "online" {
 		t.Fatalf("expected status online, got %s", closedPresence.Status)
 	}
+}
+
+func TestAdminActivePresenceRequiresAdminAndListsOnlineUsers(t *testing.T) {
+	username := fmt.Sprintf("presence_admin_active_%d", time.Now().UnixNano())
+	token := registerOrLogin(t, username, "123456")
+	userID := extractUserIDFromJWT(t, token)
+	conn := connectWS(t, token)
+	defer conn.Close()
+
+	_ = waitForPresenceStatus(t, userID, "online")
+
+	req, err := http.NewRequest(http.MethodGet, presenceBaseURL+"/admin/presence/active?limit=100", nil)
+	if err != nil {
+		t.Fatalf("failed to create active presence request: %v", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+frontendToken(t))
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		var netErr *net.OpError
+		if errors.As(err, &netErr) {
+			t.Skipf("presence service unavailable for integration test: %v", err)
+		}
+		t.Fatalf("failed to call active presence endpoint: %v", err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusForbidden {
+		t.Fatalf("expected status %d for non-admin, got %d", http.StatusForbidden, resp.StatusCode)
+	}
+
+	req, err = http.NewRequest(http.MethodGet, presenceBaseURL+"/admin/presence/active?limit=100", nil)
+	if err != nil {
+		t.Fatalf("failed to create active presence request: %v", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+adminToken(t))
+	resp, err = http.DefaultClient.Do(req)
+	if err != nil {
+		var netErr *net.OpError
+		if errors.As(err, &netErr) {
+			t.Skipf("presence service unavailable for integration test: %v", err)
+		}
+		t.Fatalf("failed to call active presence endpoint: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, resp.StatusCode)
+	}
+
+	var active activeUsersResponse
+	if err := json.NewDecoder(resp.Body).Decode(&active); err != nil {
+		t.Fatalf("failed to decode active presence response: %v", err)
+	}
+	if active.Count != len(active.Users) {
+		t.Fatalf("expected count to match users length, got count=%d len=%d", active.Count, len(active.Users))
+	}
+	for _, user := range active.Users {
+		if user.UserID == userID {
+			if user.Status != "online" {
+				t.Fatalf("expected active user status online, got %s", user.Status)
+			}
+			if user.Username != username {
+				t.Fatalf("expected username %s, got %s", username, user.Username)
+			}
+			return
+		}
+	}
+	t.Fatalf("expected active response to include user %s, got %+v", userID, active.Users)
 }
 
 func waitForPresenceStatus(t *testing.T, userID, expectedStatus string) presenceResponse {

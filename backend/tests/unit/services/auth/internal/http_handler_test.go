@@ -100,3 +100,48 @@ func TestRegisterReturnsGenericInternalError(t *testing.T) {
 		t.Fatalf("expected generic internal error, got %q", body["error"])
 	}
 }
+
+func TestBootstrapAdminRequiresInternalToken(t *testing.T) {
+	handler := NewHandler(NewService(handlerRepoStub{}, NewTokenIssuer("secret", testJWTExpiry)), handlerAuditPublisherStub{}, "internal")
+	req := httptest.NewRequest(http.MethodPost, "/internal/users/admin", bytes.NewBufferString(`{"username":"admin","password":"secret"}`))
+	rec := httptest.NewRecorder()
+
+	handler.BootstrapAdmin(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401, got %d", rec.Code)
+	}
+}
+
+func TestBootstrapAdminCreatesAdmin(t *testing.T) {
+	var capturedRole string
+	handler := NewHandler(NewService(handlerRepoStub{
+		findByUsernameFn: func(context.Context, string) (*User, error) {
+			return nil, ErrUserNotFound
+		},
+		createFn: func(_ context.Context, req *RegisterRequest) (*User, error) {
+			capturedRole = req.Role
+			return &User{ID: "admin-1", Username: req.Username, Role: req.Role, FriendCode: req.FriendCode}, nil
+		},
+	}, NewTokenIssuer("secret", testJWTExpiry)), handlerAuditPublisherStub{}, "internal")
+	req := httptest.NewRequest(http.MethodPost, "/internal/users/admin", bytes.NewBufferString(`{"username":"admin","password":"secret"}`))
+	req.Header.Set("X-Internal-Token", "internal")
+	rec := httptest.NewRecorder()
+
+	handler.BootstrapAdmin(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("expected 201, got %d", rec.Code)
+	}
+	if capturedRole != RoleAdmin {
+		t.Fatalf("expected role %s, got %s", RoleAdmin, capturedRole)
+	}
+
+	var body tokenResponse
+	if err := json.NewDecoder(rec.Body).Decode(&body); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if body.Role != RoleAdmin {
+		t.Fatalf("expected response role %s, got %s", RoleAdmin, body.Role)
+	}
+}

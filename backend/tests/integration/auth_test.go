@@ -11,6 +11,7 @@ import (
 
 type RegisterResponse struct {
 	Token      string `json:"token"`
+	Role       string `json:"role"`
 	FriendCode string `json:"friendCode"`
 }
 
@@ -76,5 +77,42 @@ func TestRegisterRejectsUnknownFields(t *testing.T) {
 	}
 	if result.Error != "invalid payload" {
 		t.Fatalf("expected invalid payload, got %q", result.Error)
+	}
+}
+
+func TestPublicRegisterCannotCreateAdmin(t *testing.T) {
+	body := map[string]string{
+		"username": "public_admin_attempt",
+		"password": "123456",
+		"role":     "ADMIN",
+	}
+	jsonBody, _ := json.Marshal(body)
+
+	resp, err := http.Post(gatewayBaseURL+"/auth/register", "application/json", bytes.NewReader(jsonBody))
+	if err != nil {
+		var netErr *net.OpError
+		if errors.As(err, &netErr) {
+			t.Skipf("gateway unavailable for integration test: %v", err)
+		}
+		t.Fatalf("error registering user: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusConflict {
+		t.Fatalf("expected status code %d or %d, got %d", http.StatusCreated, http.StatusConflict, resp.StatusCode)
+	}
+	if resp.StatusCode == http.StatusConflict {
+		return
+	}
+
+	var result RegisterResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("error decoding register response: %v", err)
+	}
+	if result.Role != "USER" {
+		t.Fatalf("expected response role USER, got %s", result.Role)
+	}
+	if role := extractRoleFromJWT(t, result.Token); role != "USER" {
+		t.Fatalf("expected jwt role USER, got %s", role)
 	}
 }
