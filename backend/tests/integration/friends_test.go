@@ -14,23 +14,92 @@ import (
 )
 
 type friendRequestResponse struct {
-	ID         string `json:"id"`
-	SenderID   string `json:"senderId"`
-	ReceiverID string `json:"receiverId"`
-	CreatedAt  string `json:"createdAt"`
+	ID             string `json:"id"`
+	SenderID       string `json:"senderId"`
+	SenderUsername string `json:"senderUsername,omitempty"`
+	ReceiverID     string `json:"receiverId"`
+	CreatedAt      string `json:"createdAt"`
 }
 
 type friendResponse struct {
-	ID        string `json:"id"`
-	UserID    string `json:"userId"`
-	FriendID  string `json:"friendId"`
-	CreatedAt string `json:"createdAt"`
+	ID             string `json:"id"`
+	UserID         string `json:"userId"`
+	FriendID       string `json:"friendId"`
+	FriendUsername string `json:"friendUsername,omitempty"`
+	CreatedAt      string `json:"createdAt"`
+}
+
+func TestSendFriendRequestByFriendCode(t *testing.T) {
+	t.Parallel()
+
+	timestamp := time.Now().UnixNano()
+	password := "123456"
+
+	senderUsername := fmt.Sprintf("friends_fc_sender_%d", timestamp)
+	receiverUsername := fmt.Sprintf("friends_fc_receiver_%d", timestamp)
+
+	senderToken := registerOrLogin(t, senderUsername, password)
+	receiverToken := registerOrLogin(t, receiverUsername, password)
+
+	receiverID := extractUserIDFromJWT(t, receiverToken)
+	receiverFriendCode := friendCodeFromLogin(t, receiverUsername, password)
+
+	request := sendFriendRequest(t, senderToken, receiverFriendCode)
+
+	if request.ReceiverID != receiverID {
+		t.Fatalf("expected receiver %s, got %s", receiverID, request.ReceiverID)
+	}
+
+	pendingRequests := listPendingFriendRequests(t, receiverToken)
+	senderID := extractUserIDFromJWT(t, senderToken)
+	if !hasPendingRequest(pendingRequests, request.ID, senderID, receiverID) {
+		t.Fatalf("expected pending requests to include request %+v, got %+v", request, pendingRequests)
+	}
+	for _, pr := range pendingRequests {
+		if pr.ID == request.ID && pr.SenderUsername != senderUsername {
+			t.Fatalf("expected senderUsername %q on pending request, got %q", senderUsername, pr.SenderUsername)
+		}
+	}
+}
+
+func friendCodeFromLogin(t *testing.T, username, password string) string {
+	t.Helper()
+
+	body := map[string]string{"username": username, "password": password}
+	data, err := json.Marshal(body)
+	if err != nil {
+		t.Fatalf("marshal login body: %v", err)
+	}
+
+	resp, err := http.Post(gatewayBaseURL+"/auth/login", "application/json", bytes.NewReader(data))
+	if err != nil {
+		var netErr *net.OpError
+		if errors.As(err, &netErr) {
+			t.Skipf("gateway unavailable for integration test: %v", err)
+		}
+		t.Fatalf("login request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected login status %d, got %d: %s", http.StatusOK, resp.StatusCode, readResponseBody(t, resp))
+	}
+
+	var out RegisterResponse
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		t.Fatalf("decode login: %v", err)
+	}
+	if out.FriendCode == "" {
+		t.Fatal("expected friendCode in login response")
+	}
+
+	return out.FriendCode
 }
 
 func TestSendFriendRequestCreatesPendingRequest(t *testing.T) {
 	t.Parallel()
 
-	senderToken, receiverToken, senderID, receiverID := newFriendTestUsers(t, "send_request")
+	senderToken, receiverToken, senderID, receiverID, senderUsername, _ := newFriendTestUsers(t, "send_request")
 
 	request := sendFriendRequest(t, senderToken, receiverID)
 
@@ -48,12 +117,17 @@ func TestSendFriendRequestCreatesPendingRequest(t *testing.T) {
 	if !hasPendingRequest(pendingRequests, request.ID, senderID, receiverID) {
 		t.Fatalf("expected pending requests to include request %+v, got %+v", request, pendingRequests)
 	}
+	for _, pr := range pendingRequests {
+		if pr.ID == request.ID && pr.SenderUsername != senderUsername {
+			t.Fatalf("expected senderUsername %q on pending request, got %q", senderUsername, pr.SenderUsername)
+		}
+	}
 }
 
 func TestAcceptFriendRequestCreatesFriendship(t *testing.T) {
 	t.Parallel()
 
-	senderToken, receiverToken, senderID, receiverID := newFriendTestUsers(t, "accept_request")
+	senderToken, receiverToken, senderID, receiverID, senderUsername, receiverUsername := newFriendTestUsers(t, "accept_request")
 
 	request := sendFriendRequest(t, senderToken, receiverID)
 	acceptFriendRequest(t, receiverToken, request.ID)
@@ -67,17 +141,27 @@ func TestAcceptFriendRequestCreatesFriendship(t *testing.T) {
 	if !hasFriend(senderFriends, senderID, receiverID) {
 		t.Fatalf("expected sender friend list to include %s, got %+v", receiverID, senderFriends)
 	}
+	for _, f := range senderFriends {
+		if f.UserID == senderID && f.FriendID == receiverID && f.FriendUsername != receiverUsername {
+			t.Fatalf("expected friendUsername %q for friend %s, got %q", receiverUsername, receiverID, f.FriendUsername)
+		}
+	}
 
 	receiverFriends := listFriends(t, receiverToken)
 	if !hasFriend(receiverFriends, receiverID, senderID) {
 		t.Fatalf("expected receiver friend list to include %s, got %+v", senderID, receiverFriends)
+	}
+	for _, f := range receiverFriends {
+		if f.UserID == receiverID && f.FriendID == senderID && f.FriendUsername != senderUsername {
+			t.Fatalf("expected friendUsername %q for friend %s, got %q", senderUsername, senderID, f.FriendUsername)
+		}
 	}
 }
 
 func TestDeclineFriendRequestRemovesPendingRequest(t *testing.T) {
 	t.Parallel()
 
-	senderToken, receiverToken, senderID, receiverID := newFriendTestUsers(t, "decline_request")
+	senderToken, receiverToken, senderID, receiverID, _, _ := newFriendTestUsers(t, "decline_request")
 
 	request := sendFriendRequest(t, senderToken, receiverID)
 	declineFriendRequest(t, receiverToken, request.ID)
@@ -101,7 +185,7 @@ func TestDeclineFriendRequestRemovesPendingRequest(t *testing.T) {
 func TestRemoveFriendDeletesFriendship(t *testing.T) {
 	t.Parallel()
 
-	senderToken, receiverToken, senderID, receiverID := newFriendTestUsers(t, "remove_friend")
+	senderToken, receiverToken, senderID, receiverID, _, _ := newFriendTestUsers(t, "remove_friend")
 
 	request := sendFriendRequest(t, senderToken, receiverID)
 	acceptFriendRequest(t, receiverToken, request.ID)
@@ -118,14 +202,14 @@ func TestRemoveFriendDeletesFriendship(t *testing.T) {
 	}
 }
 
-func newFriendTestUsers(t *testing.T, prefix string) (senderToken, receiverToken, senderID, receiverID string) {
+func newFriendTestUsers(t *testing.T, prefix string) (senderToken, receiverToken, senderID, receiverID, senderUsername, receiverUsername string) {
 	t.Helper()
 
 	timestamp := time.Now().UnixNano()
 	password := "123456"
 
-	senderUsername := fmt.Sprintf("friends_%s_sender_%d", prefix, timestamp)
-	receiverUsername := fmt.Sprintf("friends_%s_receiver_%d", prefix, timestamp)
+	senderUsername = fmt.Sprintf("friends_%s_sender_%d", prefix, timestamp)
+	receiverUsername = fmt.Sprintf("friends_%s_receiver_%d", prefix, timestamp)
 
 	senderToken = registerOrLogin(t, senderUsername, password)
 	receiverToken = registerOrLogin(t, receiverUsername, password)
@@ -133,7 +217,7 @@ func newFriendTestUsers(t *testing.T, prefix string) (senderToken, receiverToken
 	senderID = extractUserIDFromJWT(t, senderToken)
 	receiverID = extractUserIDFromJWT(t, receiverToken)
 
-	return senderToken, receiverToken, senderID, receiverID
+	return senderToken, receiverToken, senderID, receiverID, senderUsername, receiverUsername
 }
 
 func sendFriendRequest(t *testing.T, token, receiverID string) friendRequestResponse {

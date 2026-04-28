@@ -20,29 +20,38 @@ var (
 	ErrFriendRequestNotFound       = errors.New("friend request not found")
 	ErrUnauthorizedFriendRequest   = errors.New("only the receiver can manage this friend request")
 	ErrFriendNotFound              = errors.New("friend not found")
+	ErrUnknownFriendCode           = errors.New("unknown friend code")
+	ErrFriendLookupUnavailable     = errors.New("friend code lookup is not configured")
 )
 
 type Service struct {
-	repo Repository
-	now  func() time.Time
+	repo   Repository
+	lookup FriendCodeLookup
+	now    func() time.Time
 }
 
-func NewService(repo Repository) *Service {
+func NewService(repo Repository, lookup FriendCodeLookup) *Service {
 	return &Service{
-		repo: repo,
+		repo:   repo,
+		lookup: lookup,
 		now: func() time.Time {
 			return time.Now().UTC()
 		},
 	}
 }
 
-func (s *Service) SendFriendRequest(ctx context.Context, senderID, receiverID string) (FriendRequest, error) {
+func (s *Service) SendFriendRequest(ctx context.Context, senderID, receiverTarget string) (FriendRequest, error) {
 	senderID = strings.TrimSpace(senderID)
-	receiverID = strings.TrimSpace(receiverID)
 
 	if senderID == "" {
 		return FriendRequest{}, ErrInvalidActorID
 	}
+
+	receiverID, err := ResolveReceiverUserID(ctx, receiverTarget, s.lookup)
+	if err != nil {
+		return FriendRequest{}, err
+	}
+
 	if receiverID == "" {
 		return FriendRequest{}, ErrInvalidReceiverID
 	}

@@ -75,7 +75,7 @@ func (r *repositoryStub) ListFriends(_ context.Context, _ string) ([]Friend, err
 
 func TestSendFriendRequest(t *testing.T) {
 	repo := &repositoryStub{}
-	service := NewService(repo)
+	service := NewService(repo, nil)
 	now := time.Date(2026, 3, 19, 12, 0, 0, 0, time.UTC)
 	service.now = func() time.Time { return now }
 
@@ -97,7 +97,7 @@ func TestSendFriendRequest(t *testing.T) {
 
 func TestSendFriendRequestPreventsDuplicatePendingRequests(t *testing.T) {
 	repo := &repositoryStub{friendRequestExists: true}
-	service := NewService(repo)
+	service := NewService(repo, nil)
 
 	_, err := service.SendFriendRequest(context.Background(), "user-1", "user-2")
 	if !errors.Is(err, ErrFriendRequestAlreadyExists) {
@@ -113,7 +113,7 @@ func TestAcceptFriendRequest(t *testing.T) {
 			ReceiverID: "user-2",
 		},
 	}
-	service := NewService(repo)
+	service := NewService(repo, nil)
 
 	if _, err := service.AcceptFriendRequest(context.Background(), "user-2", "request-1"); err != nil {
 		t.Fatalf("AcceptFriendRequest returned error: %v", err)
@@ -136,7 +136,7 @@ func TestAcceptFriendRequestSkipsFriendCreationWhenUsersAlreadyFriends(t *testin
 			ReceiverID: "user-2",
 		},
 	}
-	service := NewService(repo)
+	service := NewService(repo, nil)
 
 	if _, err := service.AcceptFriendRequest(context.Background(), "user-2", "request-1"); err != nil {
 		t.Fatalf("AcceptFriendRequest returned error: %v", err)
@@ -158,7 +158,7 @@ func TestDeclineFriendRequest(t *testing.T) {
 			ReceiverID: "user-2",
 		},
 	}
-	service := NewService(repo)
+	service := NewService(repo, nil)
 
 	if _, err := service.DeclineFriendRequest(context.Background(), "user-2", "request-1"); err != nil {
 		t.Fatalf("DeclineFriendRequest returned error: %v", err)
@@ -177,7 +177,7 @@ func TestAcceptFriendRequestRejectsUnauthorizedActor(t *testing.T) {
 			ReceiverID: "user-2",
 		},
 	}
-	service := NewService(repo)
+	service := NewService(repo, nil)
 
 	_, err := service.AcceptFriendRequest(context.Background(), "user-3", "request-1")
 	if !errors.Is(err, ErrUnauthorizedFriendRequest) {
@@ -193,7 +193,7 @@ func TestDeclineFriendRequestRejectsUnauthorizedActor(t *testing.T) {
 			ReceiverID: "user-2",
 		},
 	}
-	service := NewService(repo)
+	service := NewService(repo, nil)
 
 	_, err := service.DeclineFriendRequest(context.Background(), "user-3", "request-1")
 	if !errors.Is(err, ErrUnauthorizedFriendRequest) {
@@ -202,7 +202,7 @@ func TestDeclineFriendRequestRejectsUnauthorizedActor(t *testing.T) {
 }
 
 func TestSendFriendRequestPreventsSelfRequest(t *testing.T) {
-	service := NewService(&repositoryStub{})
+	service := NewService(&repositoryStub{}, nil)
 
 	_, err := service.SendFriendRequest(context.Background(), "user-1", "user-1")
 	if !errors.Is(err, ErrCannotSendRequestToYourself) {

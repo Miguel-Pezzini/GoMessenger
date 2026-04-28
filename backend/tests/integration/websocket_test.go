@@ -466,7 +466,7 @@ func TestViewedStatusLifecycle(t *testing.T) {
 func TestFriendRequestNotificationDeliveredOverWebsocket(t *testing.T) {
 	t.Parallel()
 
-	senderToken, receiverToken, senderID, receiverID := newFriendTestUsers(t, "friend_notification")
+	senderToken, receiverToken, senderID, receiverID, _, _ := newFriendTestUsers(t, "friend_notification")
 
 	conn := connectWS(t, receiverToken)
 	defer conn.Close()

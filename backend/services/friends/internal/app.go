@@ -18,6 +18,8 @@ type Config struct {
 	FriendEvents                     string
 	NotificationFriendRequestsStream string
 	AuditStream                      string
+	AuthUpstreamURL                  string
+	InternalServiceToken             string
 }
 
 func LoadConfig() Config {
@@ -29,6 +31,8 @@ func LoadConfig() Config {
 		FriendEvents:                     config.MustString("REDIS_CHANNEL_FRIEND_EVENTS"),
 		NotificationFriendRequestsStream: config.MustString("REDIS_STREAM_NOTIFICATION_FRIEND_REQUESTS"),
 		AuditStream:                      config.MustString("REDIS_STREAM_AUDIT_LOGS"),
+		AuthUpstreamURL:                  config.MustString("AUTH_UPSTREAM_URL"),
+		InternalServiceToken:             config.String("INTERNAL_SERVICE_TOKEN", "dev-internal-token"),
 	}
 }
 
@@ -50,13 +54,15 @@ func Run() error {
 		return err
 	}
 
-	service := NewService(repo)
+	authLookup := NewAuthHTTPClient(cfg.AuthUpstreamURL, cfg.InternalServiceToken)
+	service := NewService(repo, authLookup)
 	handler := NewHandler(
 		service,
-		NewPublisher(rdb, cfg.NotificationFriendRequestsStream),
+		NewPublisher(rdb, cfg.FriendEvents),
 		NewPublisher(rdb, cfg.NotificationFriendRequestsStream),
 		audit.NewRedisPublisher(rdb, cfg.AuditStream),
 		cfg.FriendEvents,
+		authLookup,
 	)
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /friends/requests", handler.SendFriendRequest)

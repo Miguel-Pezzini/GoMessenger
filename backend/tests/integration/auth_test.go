@@ -10,7 +10,8 @@ import (
 )
 
 type RegisterResponse struct {
-	Token string `json:"token"`
+	Token      string `json:"token"`
+	FriendCode string `json:"friendCode"`
 }
 
 type errorResponse struct {

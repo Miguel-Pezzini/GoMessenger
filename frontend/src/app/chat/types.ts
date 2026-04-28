@@ -6,6 +6,7 @@ export interface Friend {
   id: string;
   userId: string;
   friendId: string;
+  friendUsername?: string;
   createdAt: string;
 }
 
@@ -13,6 +14,7 @@ export interface FriendRequest {
   id: string;
   senderId: string;
   receiverId: string;
+  senderUsername?: string;
   createdAt: string;
 }
 
@@ -74,6 +76,7 @@ export interface StoredSession {
   token: string;
   username: string;
   userId: string;
+  friendCode: string;
 }
 
 export interface ContactListItem {
