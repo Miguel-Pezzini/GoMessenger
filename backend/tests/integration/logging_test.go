@@ -32,42 +32,46 @@ type auditLogEvent struct {
 func TestLoggingEndpointsRequireAdminAuth(t *testing.T) {
 	userToken := frontendToken(t)
 
-	req, err := http.NewRequest(http.MethodGet, loggingBaseURL+"/logs", nil)
-	if err != nil {
-		t.Fatalf("failed to create logs request: %v", err)
-	}
-	req.Header.Set("Authorization", "Bearer "+userToken)
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		var netErr *net.OpError
-		if errors.As(err, &netErr) {
-			t.Skipf("logging service unavailable for integration test: %v", err)
+	for _, path := range []string{"/logs", "/admin/logs"} {
+		req, err := http.NewRequest(http.MethodGet, loggingBaseURL+path, nil)
+		if err != nil {
+			t.Fatalf("failed to create logs request: %v", err)
 		}
-		t.Fatalf("failed to call logs endpoint: %v", err)
-	}
-	defer resp.Body.Close()
+		req.Header.Set("Authorization", "Bearer "+userToken)
 
-	if resp.StatusCode != http.StatusForbidden {
-		t.Fatalf("expected status %d, got %d", http.StatusForbidden, resp.StatusCode)
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			var netErr *net.OpError
+			if errors.As(err, &netErr) {
+				t.Skipf("logging service unavailable for integration test: %v", err)
+			}
+			t.Fatalf("failed to call logs endpoint: %v", err)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusForbidden {
+			t.Fatalf("expected status %d for %s, got %d", http.StatusForbidden, path, resp.StatusCode)
+		}
 	}
 
 	headers := http.Header{}
 	headers.Set("Authorization", "Bearer "+userToken)
 
-	_, resp, err = websocket.DefaultDialer.Dial(websocketURL(loggingBaseURL, "/logs/ws"), headers)
-	if err == nil {
-		t.Fatal("expected websocket dial to fail without admin auth")
-	}
-	var netErr *net.OpError
-	if resp == nil && errors.As(err, &netErr) {
-		t.Skipf("logging service unavailable for integration test: %v", err)
-	}
-	if resp == nil {
-		t.Fatalf("expected HTTP response for unauthenticated websocket failure, got err %v", err)
-	}
-	if resp.StatusCode != http.StatusForbidden {
-		t.Fatalf("expected status %d, got %d", http.StatusForbidden, resp.StatusCode)
+	for _, path := range []string{"/logs/ws", "/admin/logs/ws"} {
+		_, resp, err := websocket.DefaultDialer.Dial(websocketURL(loggingBaseURL, path), headers)
+		if err == nil {
+			t.Fatal("expected websocket dial to fail without admin auth")
+		}
+		var netErr *net.OpError
+		if resp == nil && errors.As(err, &netErr) {
+			t.Skipf("logging service unavailable for integration test: %v", err)
+		}
+		if resp == nil {
+			t.Fatalf("expected HTTP response for unauthenticated websocket failure, got err %v", err)
+		}
+		if resp.StatusCode != http.StatusForbidden {
+			t.Fatalf("expected status %d for %s, got %d", http.StatusForbidden, path, resp.StatusCode)
+		}
 	}
 }
 
@@ -160,7 +164,7 @@ func connectAdminLogsWS(t *testing.T) *websocket.Conn {
 	headers := http.Header{}
 	headers.Set("Authorization", "Bearer "+token)
 
-	conn, _, err := websocket.DefaultDialer.Dial(websocketURL(loggingBaseURL, "/logs/ws"), headers)
+	conn, _, err := websocket.DefaultDialer.Dial(websocketURL(loggingBaseURL, "/admin/logs/ws"), headers)
 	if err != nil {
 		var netErr *net.OpError
 		if errors.As(err, &netErr) {
@@ -211,7 +215,7 @@ func waitForLogEvent(t *testing.T, match func(auditLogEvent) bool) auditLogEvent
 func fetchLogs(t *testing.T) []auditLogEvent {
 	t.Helper()
 
-	req, err := http.NewRequest(http.MethodGet, loggingBaseURL+"/logs?limit=200", nil)
+	req, err := http.NewRequest(http.MethodGet, loggingBaseURL+"/admin/logs?limit=200", nil)
 	if err != nil {
 		t.Fatalf("failed to create log request: %v", err)
 	}

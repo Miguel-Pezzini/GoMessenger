@@ -13,6 +13,8 @@ import (
 type Config struct {
 	Address                string
 	RedisAddr              string
+	AuthUpstreamURL        string
+	InternalServiceToken   string
 	LifecycleEventsChannel string
 	PresenceUpdatesChannel string
 	RedisKeyPrefix         string
@@ -30,6 +32,8 @@ func LoadConfig() Config {
 	return Config{
 		Address:                config.MustString("PRESENCE_ADDR"),
 		RedisAddr:              config.MustString("REDIS_ADDR"),
+		AuthUpstreamURL:        config.MustString("AUTH_UPSTREAM_URL"),
+		InternalServiceToken:   config.String("INTERNAL_SERVICE_TOKEN", "dev-internal-token"),
 		LifecycleEventsChannel: config.MustString("REDIS_CHANNEL_PRESENCE_EVENTS"),
 		PresenceUpdatesChannel: config.MustString("REDIS_CHANNEL_PRESENCE"),
 		RedisKeyPrefix:         config.MustString("REDIS_KEY_PREFIX_PRESENCE"),
@@ -43,7 +47,8 @@ func NewServer(cfg Config) (*Server, error) {
 	}
 
 	repo := NewRedisRepository(rdb, cfg.RedisKeyPrefix)
-	service := NewService(repo, cfg.PresenceUpdatesChannel)
+	authLookup := NewAuthHTTPClient(cfg.AuthUpstreamURL, cfg.InternalServiceToken)
+	service := NewService(repo, cfg.PresenceUpdatesChannel, authLookup)
 
 	return &Server{
 		addr:                   cfg.Address,
@@ -70,5 +75,6 @@ func (s *Server) Start() error {
 
 	mux := http.NewServeMux()
 	mux.Handle("GET /presence/{userID}", http.HandlerFunc(s.handler.HandleGetPresence))
+	mux.Handle("GET /admin/presence/active", http.HandlerFunc(s.handler.HandleListActiveUsers))
 	return http.ListenAndServe(s.addr, mux)
 }

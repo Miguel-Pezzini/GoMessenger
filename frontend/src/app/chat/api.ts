@@ -62,7 +62,7 @@ export const authenticate = async (params: {
     throw new Error(createMessageFromPayload(payload, response, 'Authentication failed.'));
   }
 
-  return payload as { token?: string; accessToken?: string; jwt?: string; friendCode?: string };
+  return payload as { token?: string; accessToken?: string; jwt?: string; role?: string; friendCode?: string };
 };
 
 export const createApiClient = (options: ApiClientOptions) => {

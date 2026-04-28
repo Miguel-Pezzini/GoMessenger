@@ -9,8 +9,9 @@ import (
 )
 
 type serviceRepositoryStub struct {
-	events []StoredEvent
-	err    error
+	events     []StoredEvent
+	err        error
+	lastFilter LogFilter
 }
 
 func (r *serviceRepositoryStub) Append(_ context.Context, event StoredEvent) error {
@@ -22,6 +23,12 @@ func (r *serviceRepositoryStub) Append(_ context.Context, event StoredEvent) err
 }
 
 func (r *serviceRepositoryStub) ListRecent(_ context.Context, limit int) ([]StoredEvent, error) {
+	return r.List(context.Background(), LogFilter{Limit: limit})
+}
+
+func (r *serviceRepositoryStub) List(_ context.Context, filter LogFilter) ([]StoredEvent, error) {
+	r.lastFilter = filter
+	limit := filter.Limit
 	if limit > len(r.events) {
 		limit = len(r.events)
 	}
@@ -62,5 +69,19 @@ func TestIngestRejectsInvalidEvent(t *testing.T) {
 	service := NewService(&serviceRepositoryStub{})
 	if _, err := service.Ingest(context.Background(), "1-0", audit.Event{}); err == nil {
 		t.Fatal("expected validation error")
+	}
+}
+
+func TestListUsesFilter(t *testing.T) {
+	repo := &serviceRepositoryStub{}
+	service := NewService(repo)
+	filter := LogFilter{Limit: 25, Service: "auth", Status: audit.StatusFailure, Query: "login"}
+
+	if _, err := service.List(context.Background(), filter); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if repo.lastFilter != filter {
+		t.Fatalf("expected filter %#v, got %#v", filter, repo.lastFilter)
 	}
 }

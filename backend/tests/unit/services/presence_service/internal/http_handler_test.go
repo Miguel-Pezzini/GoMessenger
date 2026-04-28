@@ -11,8 +11,9 @@ import (
 )
 
 type repositoryStub struct {
-	presence presence.Presence
-	err      error
+	presence       presence.Presence
+	activePresence []presence.Presence
+	err            error
 }
 
 func (r *repositoryStub) Save(_ context.Context, _ presence.Presence) error {
@@ -21,6 +22,10 @@ func (r *repositoryStub) Save(_ context.Context, _ presence.Presence) error {
 
 func (r *repositoryStub) Get(_ context.Context, _ string) (presence.Presence, error) {
 	return r.presence, r.err
+}
+
+func (r *repositoryStub) ListActive(_ context.Context, _ int) ([]presence.Presence, error) {
+	return append([]presence.Presence(nil), r.activePresence...), r.err
 }
 
 func (r *repositoryStub) Publish(_ context.Context, _ string, _ presence.Presence) error {
@@ -73,5 +78,30 @@ func TestHandleGetPresenceReturnsNotFound(t *testing.T) {
 
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("expected status 404, got %d", rec.Code)
+	}
+}
+
+func TestHandleListActiveUsers(t *testing.T) {
+	service := presence.NewService(&repositoryStub{
+		activePresence: []presence.Presence{
+			{UserID: "user-a", Status: presence.StatusOnline},
+		},
+	}, "presence.updated")
+	handler := presence.NewHandler(service)
+	mux := http.NewServeMux()
+	mux.Handle("GET /admin/presence/active", http.HandlerFunc(handler.HandleListActiveUsers))
+
+	req := httptest.NewRequest(http.MethodGet, "/admin/presence/active?limit=100", nil)
+	rec := httptest.NewRecorder()
+
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", rec.Code)
+	}
+
+	expected := "{\"users\":[{\"user_id\":\"user-a\",\"status\":\"online\"}],\"count\":1}\n"
+	if rec.Body.String() != expected {
+		t.Fatalf("expected body %q, got %q", expected, rec.Body.String())
 	}
 }

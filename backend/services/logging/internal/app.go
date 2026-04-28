@@ -56,6 +56,8 @@ func Run() error {
 	mux := http.NewServeMux()
 	mux.Handle("GET /logs", http.HandlerFunc(handler.ListLogs))
 	mux.Handle("GET /logs/ws", http.HandlerFunc(handler.StreamLogs))
+	mux.Handle("GET /admin/logs", http.HandlerFunc(handler.ListLogs))
+	mux.Handle("GET /admin/logs/ws", http.HandlerFunc(handler.StreamLogs))
 
 	return http.ListenAndServe(cfg.Address, mux)
 }

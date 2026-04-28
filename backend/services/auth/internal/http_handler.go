@@ -19,6 +19,7 @@ type Handler struct {
 
 type tokenResponse struct {
 	Token      string `json:"token"`
+	Role       string `json:"role"`
 	FriendCode string `json:"friendCode,omitempty"`
 }
 
@@ -63,7 +64,52 @@ func (h *Handler) Register(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 		},
 	})
 
-	writeJSON(w, stdhttp.StatusCreated, tokenResponse{Token: res.Token, FriendCode: res.FriendCode})
+	writeJSON(w, stdhttp.StatusCreated, tokenResponse{Token: res.Token, Role: res.Role, FriendCode: res.FriendCode})
+}
+
+func (h *Handler) BootstrapAdmin(w stdhttp.ResponseWriter, r *stdhttp.Request) {
+	if h.internalToken == "" || r.Header.Get("X-Internal-Token") != h.internalToken {
+		writeJSONError(w, stdhttp.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	var req RegisterRequest
+	if err := decodeJSONBody(w, r, &req); err != nil {
+		writeJSONError(w, stdhttp.StatusBadRequest, "invalid payload")
+		return
+	}
+
+	res, err := h.service.RegisterAdmin(r.Context(), &req)
+	if err != nil {
+		h.publish(r.Context(), audit.Event{
+			EventType:  "admin.bootstrap.failed",
+			Category:   audit.CategoryError,
+			Service:    "auth",
+			EntityType: "user",
+			Status:     audit.StatusFailure,
+			Message:    "admin bootstrap failed",
+			Metadata: map[string]any{
+				"username": req.Username,
+				"error":    err.Error(),
+			},
+		})
+		handleError(w, err)
+		return
+	}
+
+	h.publish(r.Context(), audit.Event{
+		EventType:  "admin.bootstrapped",
+		Category:   audit.CategoryAudit,
+		Service:    "auth",
+		EntityType: "user",
+		Status:     audit.StatusSuccess,
+		Message:    "admin user bootstrapped",
+		Metadata: map[string]any{
+			"username": req.Username,
+		},
+	})
+
+	writeJSON(w, stdhttp.StatusCreated, tokenResponse{Token: res.Token, Role: res.Role, FriendCode: res.FriendCode})
 }
 
 func (h *Handler) Login(w stdhttp.ResponseWriter, r *stdhttp.Request) {
@@ -103,7 +149,7 @@ func (h *Handler) Login(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 		},
 	})
 
-	writeJSON(w, stdhttp.StatusOK, tokenResponse{Token: res.Token, FriendCode: res.FriendCode})
+	writeJSON(w, stdhttp.StatusOK, tokenResponse{Token: res.Token, Role: res.Role, FriendCode: res.FriendCode})
 }
 
 func (h *Handler) LookupUserByFriendCode(w stdhttp.ResponseWriter, r *stdhttp.Request) {

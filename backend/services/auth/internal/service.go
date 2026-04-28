@@ -21,15 +21,23 @@ func NewService(repo Repository, tokens *TokenIssuer) *Service {
 }
 
 var (
-	ErrUserAlreadyExists   = errors.New("user already exists")
-	ErrUserNotFound        = errors.New("user not found")
-	ErrInvalidUsername     = errors.New("username is required")
-	ErrInvalidPassword     = errors.New("password is required")
-	ErrInvalidCredentials  = errors.New("invalid credentials")
-	ErrFriendCodeRequired  = errors.New("friend_code is required")
+	ErrUserAlreadyExists  = errors.New("user already exists")
+	ErrUserNotFound       = errors.New("user not found")
+	ErrInvalidUsername    = errors.New("username is required")
+	ErrInvalidPassword    = errors.New("password is required")
+	ErrInvalidCredentials = errors.New("invalid credentials")
+	ErrFriendCodeRequired = errors.New("friend_code is required")
 )
 
 func (s *Service) Register(ctx context.Context, req *RegisterRequest) (*RegisterResponse, error) {
+	return s.registerWithRole(ctx, req, RoleUser)
+}
+
+func (s *Service) RegisterAdmin(ctx context.Context, req *RegisterRequest) (*RegisterResponse, error) {
+	return s.registerWithRole(ctx, req, RoleAdmin)
+}
+
+func (s *Service) registerWithRole(ctx context.Context, req *RegisterRequest, role string) (*RegisterResponse, error) {
 	req.Username = strings.TrimSpace(req.Username)
 	if req.Username == "" {
 		return nil, ErrInvalidUsername
@@ -49,7 +57,6 @@ func (s *Service) Register(ctx context.Context, req *RegisterRequest) (*Register
 		return nil, fmt.Errorf("failed to hash password: %w", err)
 	}
 
-	role := req.Role
 	if role != RoleAdmin {
 		role = RoleUser
 	}

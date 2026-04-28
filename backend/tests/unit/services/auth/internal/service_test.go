@@ -253,7 +253,7 @@ func TestRegisterDefaultsToUserRole(t *testing.T) {
 	}
 }
 
-func TestRegisterAdminRoleIsPreserved(t *testing.T) {
+func TestRegisterIgnoresAdminRole(t *testing.T) {
 	var capturedRole string
 	svc := NewService(repoStub{
 		findByUsernameFn: func(_ context.Context, _ string) (*User, error) {
@@ -266,6 +266,30 @@ func TestRegisterAdminRoleIsPreserved(t *testing.T) {
 	}, NewTokenIssuer("secret", time.Hour))
 
 	resp, err := svc.Register(context.Background(), &RegisterRequest{Username: "admin", Password: "pass", Role: RoleAdmin})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if capturedRole != RoleUser {
+		t.Fatalf("expected repo to receive role=%s, got %s", RoleUser, capturedRole)
+	}
+	if resp.Role != RoleUser {
+		t.Fatalf("expected response role=%s, got %s", RoleUser, resp.Role)
+	}
+}
+
+func TestRegisterAdminCreatesAdminRole(t *testing.T) {
+	var capturedRole string
+	svc := NewService(repoStub{
+		findByUsernameFn: func(_ context.Context, _ string) (*User, error) {
+			return nil, ErrUserNotFound
+		},
+		createFn: func(_ context.Context, req *RegisterRequest) (*User, error) {
+			capturedRole = req.Role
+			return &User{ID: "1", Username: "admin", Role: req.Role, FriendCode: req.FriendCode}, nil
+		},
+	}, NewTokenIssuer("secret", time.Hour))
+
+	resp, err := svc.RegisterAdmin(context.Background(), &RegisterRequest{Username: "admin", Password: "pass"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

@@ -21,6 +21,10 @@ func (r *streamRepositoryStub) ListRecent(_ context.Context, _ int) ([]StoredEve
 	return append([]StoredEvent(nil), r.events...), nil
 }
 
+func (r *streamRepositoryStub) List(_ context.Context, _ LogFilter) ([]StoredEvent, error) {
+	return append([]StoredEvent(nil), r.events...), nil
+}
+
 func TestDecodeEventRejectsMissingPayload(t *testing.T) {
 	if _, err := decodeEvent(redis.XMessage{ID: "1-0"}); err == nil {
 		t.Fatal("expected error")

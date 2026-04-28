@@ -655,7 +655,7 @@ func registerOrLogin(t *testing.T, username, password string) string {
 }
 
 func registerAdminOrLogin(t *testing.T, username, password string) string {
-	return registerLoginWithRole(t, username, password, "ADMIN")
+	return bootstrapAdminOrLogin(t, username, password)
 }
 
 func frontendToken(t *testing.T) string {
@@ -677,7 +677,7 @@ func adminToken(t *testing.T) string {
 	t.Helper()
 
 	adminReaderTokenOnce.Do(func() {
-		adminReaderToken = registerLoginWithRole(t, "frontend_admin_user", "123456", "ADMIN")
+		adminReaderToken = bootstrapAdminOrLogin(t, "frontend_admin_user", "123456")
 		if adminReaderToken == "" {
 			adminReaderTokenErr = errors.New("empty admin token")
 		}
@@ -736,6 +736,49 @@ func registerLoginWithRole(t *testing.T, username, password, role string) string
 		t.Fatalf("login returned empty token")
 	}
 	return loginData.Token
+}
+
+func bootstrapAdminOrLogin(t *testing.T, username, password string) string {
+	t.Helper()
+
+	body, _ := json.Marshal(map[string]string{
+		"username": username,
+		"password": password,
+	})
+	req, err := http.NewRequest(http.MethodPost, authBaseURL+"/internal/users/admin", bytes.NewBuffer(body))
+	if err != nil {
+		t.Fatalf("failed to create admin bootstrap request: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Internal-Token", envOrDefault("INTERNAL_SERVICE_TOKEN", "dev-internal-token"))
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		var netErr *net.OpError
+		if errors.As(err, &netErr) {
+			t.Skipf("auth service unavailable for admin bootstrap: %v", err)
+		}
+		t.Fatalf("failed to call admin bootstrap endpoint: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusCreated {
+		var data RegisterResponse
+		if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
+			t.Fatalf("failed to decode admin bootstrap response: %v", err)
+		}
+		if data.Token == "" {
+			t.Fatal("admin bootstrap returned empty token")
+		}
+		return data.Token
+	}
+
+	if resp.StatusCode == http.StatusConflict {
+		return registerLoginWithRole(t, username, password, "")
+	}
+
+	t.Fatalf("unexpected admin bootstrap status code %d", resp.StatusCode)
+	return ""
 }
 
 func extractRoleFromJWT(t *testing.T, token string) string {

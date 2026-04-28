@@ -14,7 +14,7 @@ import {
   upsertPersistedMessage,
 } from './chatState.ts';
 import { formatConversationTimestamp, formatPresenceText } from './format.ts';
-import { clearStoredSession, loadStoredSession, parseJwtUserId, saveStoredSession } from './session.ts';
+import { clearStoredSession, loadStoredSession, parseJwtRole, parseJwtUserId, saveStoredSession } from './session.ts';
 import type {
   AuthMode,
   ContactListItem,
@@ -51,6 +51,7 @@ export const useChatController = () => {
   const isFriendsLoading = ref(false);
   const currentUser = ref('');
   const currentUserId = ref('');
+  const currentUserRole = ref('');
   const currentFriendCode = ref('');
   const sessionToken = ref('');
   const actionError = ref('');
@@ -644,6 +645,7 @@ export const useChatController = () => {
     sessionToken.value = session.token;
     currentUser.value = session.username;
     currentUserId.value = session.userId;
+    currentUserRole.value = session.role;
     currentFriendCode.value = session.friendCode || '';
     isAuthenticated.value = true;
 
@@ -676,6 +678,7 @@ export const useChatController = () => {
       }
 
       const userId = parseJwtUserId(token);
+      const role = parseJwtRole(token) || data.role || '';
 
       const friendCode = typeof data.friendCode === 'string' ? data.friendCode : '';
 
@@ -683,12 +686,14 @@ export const useChatController = () => {
         token,
         username: payload.username,
         friendCode,
+        role,
       });
 
       manualDisconnect = false;
       sessionToken.value = token;
       currentUser.value = payload.username;
       currentUserId.value = userId;
+      currentUserRole.value = role;
       currentFriendCode.value = friendCode;
       isAuthenticated.value = true;
       actionError.value = '';
@@ -911,6 +916,7 @@ export const useChatController = () => {
     seenAcknowledgements.clear();
     currentUser.value = '';
     currentUserId.value = '';
+    currentUserRole.value = '';
     currentFriendCode.value = '';
     sessionToken.value = '';
     friends.value = [];
@@ -1006,6 +1012,7 @@ export const useChatController = () => {
     currentMessages,
     currentUser,
     currentUserId,
+    currentUserRole,
     currentFriendCode,
     draftAttachments,
     handleAcceptRequest,

@@ -81,6 +81,9 @@ Available routes:
 - `GET /presence/{userId}`
 - `GET /logs`
 - `GET /logs/ws`
+- `GET /admin/logs`
+- `GET /admin/logs/ws`
+- `GET /admin/presence/active`
 - `GET /ws`
 
 ### `auth`
@@ -166,8 +169,8 @@ Additional realtime message types supported by the WebSocket service:
 - Responsibilities:
   - consume structured audit and error events from Redis
   - persist immutable log events in MongoDB
-  - expose `GET /logs` for admin history
-  - expose `GET /logs/ws` for admin real-time log streaming
+  - expose `GET /logs` and `GET /admin/logs` for admin history
+  - expose `GET /logs/ws` and `GET /admin/logs/ws` for admin real-time log streaming
 - Database:
   - MongoDB at `mongodb://localhost:27021`, database `logging_db`
 
@@ -178,6 +181,7 @@ Additional realtime message types supported by the WebSocket service:
   - consume presence lifecycle events from Redis
   - store the latest presence snapshot per user in Redis
   - expose `GET /presence/{userId}` through the gateway
+  - expose `GET /admin/presence/active` through the gateway for admins
 - Presence snapshot fields:
   - `status`
   - `last_seen`
