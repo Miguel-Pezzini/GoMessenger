@@ -5,6 +5,7 @@ import { Check, CheckCheck, Download, FileText } from 'lucide-vue-next';
 import { API_BASE_URL } from '../chat/api.ts';
 import { formatMessageTime } from '../chat/format.ts';
 import type { ChatAttachment, ConversationMessage } from '../chat/types.ts';
+import MediaDialog from './MediaDialog.vue';
 
 interface Props {
   message: ConversationMessage;
@@ -76,6 +77,20 @@ const handleDownload = async (attachment: ChatAttachment) => {
   URL.revokeObjectURL(url);
 };
 
+interface DialogState {
+  src: string;
+  kind: 'image' | 'video' | 'audio';
+  filename: string;
+}
+
+const dialog = ref<DialogState | null>(null);
+
+const openDialog = (attachment: ChatAttachment) => {
+  const src = objectUrls.value[attachment.id];
+  if (!src || !['image', 'video', 'audio'].includes(attachment.kind)) return;
+  dialog.value = { src, kind: attachment.kind as 'image' | 'video' | 'audio', filename: attachment.filename };
+};
+
 const formatFileSize = (size: number) => {
   if (size >= 1024 * 1024) {
     return `${(size / (1024 * 1024)).toFixed(1)} MB`;
@@ -121,20 +136,45 @@ onBeforeUnmount(() => {
               v-if="attachment.kind === 'image' && objectUrls[attachment.id]"
               :src="objectUrls[attachment.id]"
               :alt="attachment.filename"
-              class="max-h-80 w-full object-contain"
+              class="max-h-80 w-full cursor-zoom-in object-contain"
+              @click="openDialog(attachment)"
             />
-            <video
+            <div
               v-else-if="attachment.kind === 'video' && objectUrls[attachment.id]"
-              :src="objectUrls[attachment.id]"
-              class="max-h-80 w-full"
-              controls
-            />
-            <audio
+              class="relative"
+            >
+              <video
+                :src="objectUrls[attachment.id]"
+                class="max-h-80 w-full"
+                controls
+              />
+              <button
+                class="absolute right-2 top-2 rounded-full bg-black/50 p-1 text-white transition-colors hover:bg-black/70"
+                type="button"
+                aria-label="Expandir vídeo"
+                @click="openDialog(attachment)"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+              </button>
+            </div>
+            <div
               v-else-if="attachment.kind === 'audio' && objectUrls[attachment.id]"
-              :src="objectUrls[attachment.id]"
-              class="w-full"
-              controls
-            />
+              class="flex items-center gap-2 px-1 py-1"
+            >
+              <audio
+                :src="objectUrls[attachment.id]"
+                class="flex-1"
+                controls
+              />
+              <button
+                class="shrink-0 rounded-full p-1 opacity-60 transition-opacity hover:opacity-100"
+                type="button"
+                aria-label="Expandir áudio"
+                @click="openDialog(attachment)"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+              </button>
+            </div>
             <iframe
               v-else-if="attachment.content_type === 'application/pdf' && objectUrls[attachment.id]"
               :src="objectUrls[attachment.id]"
@@ -176,4 +216,12 @@ onBeforeUnmount(() => {
       </div>
     </div>
   </div>
+
+  <MediaDialog
+    v-if="dialog"
+    :src="dialog.src"
+    :kind="dialog.kind"
+    :filename="dialog.filename"
+    @close="dialog = null"
+  />
 </template>
