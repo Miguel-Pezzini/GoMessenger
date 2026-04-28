@@ -25,6 +25,12 @@ type Service struct {
 	uploadTTL time.Duration
 }
 
+type uploadedFileRecord struct {
+	objectKey    string
+	attachmentID string
+	created      bool
+}
+
 func NewService(repo Repository, storage Storage, uploadTTL time.Duration) *Service {
 	if uploadTTL <= 0 {
 		uploadTTL = defaultUploadTTL
@@ -44,10 +50,6 @@ func (s *Service) UploadFiles(ctx context.Context, ownerID string, files []*mult
 		return nil, fmt.Errorf("%w: at most %d files are allowed", ErrInvalidInput, MaxFilesPerUpload)
 	}
 
-	snapshots := make([]AttachmentSnapshot, 0, len(files))
-	now := time.Now().UTC()
-	expiresAt := now.Add(s.uploadTTL)
-
 	for _, header := range files {
 		if header == nil {
 			return nil, fmt.Errorf("%w: file is required", ErrInvalidInput)
@@ -58,9 +60,17 @@ func (s *Service) UploadFiles(ctx context.Context, ownerID string, files []*mult
 		if header.Size > MaxFileSizeBytes {
 			return nil, fmt.Errorf("%w: file exceeds %d bytes", ErrInvalidInput, MaxFileSizeBytes)
 		}
+	}
 
+	snapshots := make([]AttachmentSnapshot, 0, len(files))
+	now := time.Now().UTC()
+	expiresAt := now.Add(s.uploadTTL)
+	uploaded := make([]uploadedFileRecord, 0, len(files))
+
+	for _, header := range files {
 		file, err := header.Open()
 		if err != nil {
+			s.rollbackUploadedFiles(ctx, uploaded)
 			return nil, err
 		}
 
@@ -83,21 +93,39 @@ func (s *Service) UploadFiles(ctx context.Context, ownerID string, files []*mult
 
 		if err := s.storage.PutObject(ctx, attachment.ObjectKey, attachment.ContentType, attachment.Size, file); err != nil {
 			_ = file.Close()
+			s.rollbackUploadedFiles(ctx, uploaded)
 			return nil, err
 		}
 		if err := file.Close(); err != nil {
+			s.rollbackUploadedFiles(ctx, uploaded)
 			return nil, err
 		}
+		uploaded = append(uploaded, uploadedFileRecord{
+			objectKey:    attachment.ObjectKey,
+			attachmentID: attachment.ID,
+		})
 
 		if err := s.repo.Create(ctx, &attachment); err != nil {
 			_ = s.storage.DeleteObject(ctx, attachment.ObjectKey)
+			s.rollbackUploadedFiles(ctx, uploaded)
 			return nil, err
 		}
+		uploaded[len(uploaded)-1].created = true
 
 		snapshots = append(snapshots, AttachmentSnapshotFromAttachment(attachment))
 	}
 
 	return snapshots, nil
+}
+
+func (s *Service) rollbackUploadedFiles(ctx context.Context, uploaded []uploadedFileRecord) {
+	for i := len(uploaded) - 1; i >= 0; i-- {
+		item := uploaded[i]
+		_ = s.storage.DeleteObject(ctx, item.objectKey)
+		if item.created {
+			_ = s.repo.MarkDeleted(ctx, item.attachmentID)
+		}
+	}
 }
 
 func (s *Service) PrepareMessage(ctx context.Context, req PrepareMessageRequest) ([]AttachmentSnapshot, error) {
