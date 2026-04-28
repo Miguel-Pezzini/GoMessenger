@@ -187,6 +187,58 @@ func TestAdminActivePresenceRequiresAdminAndListsOnlineUsers(t *testing.T) {
 	t.Fatalf("expected active response to include user %s, got %+v", userID, active.Users)
 }
 
+func TestAdminActivePresenceRemainsResponsiveWithMultipleOnlineUsers(t *testing.T) {
+	const onlineUsers = 12
+
+	var conns []interface{ Close() error }
+	for i := 0; i < onlineUsers; i++ {
+		username := fmt.Sprintf("presence_bulk_user_%d_%d", time.Now().UnixNano(), i)
+		token := registerOrLogin(t, username, "123456")
+		userID := extractUserIDFromJWT(t, token)
+		conn := connectWS(t, token)
+		conns = append(conns, conn)
+		_ = waitForPresenceStatus(t, userID, "online")
+	}
+	defer func() {
+		for _, conn := range conns {
+			_ = conn.Close()
+		}
+	}()
+
+	req, err := http.NewRequest(http.MethodGet, presenceBaseURL+"/admin/presence/active?limit=100", nil)
+	if err != nil {
+		t.Fatalf("failed to create active presence request: %v", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+adminToken(t))
+
+	start := time.Now()
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		var netErr *net.OpError
+		if errors.As(err, &netErr) {
+			t.Skipf("presence service unavailable for integration test: %v", err)
+		}
+		t.Fatalf("failed to call active presence endpoint: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, resp.StatusCode)
+	}
+
+	var active activeUsersResponse
+	if err := json.NewDecoder(resp.Body).Decode(&active); err != nil {
+		t.Fatalf("failed to decode active presence response: %v", err)
+	}
+	if active.Count < onlineUsers {
+		t.Fatalf("expected at least %d active users, got %d", onlineUsers, active.Count)
+	}
+
+	if elapsed := time.Since(start); elapsed > 5*time.Second {
+		t.Fatalf("expected active presence to respond within 5s, got %v", elapsed)
+	}
+}
+
 func waitForPresenceStatus(t *testing.T, userID, expectedStatus string) presenceResponse {
 	t.Helper()
 
