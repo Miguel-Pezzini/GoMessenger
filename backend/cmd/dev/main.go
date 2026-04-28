@@ -21,6 +21,7 @@ func main() {
 		{name: "friends", path: "./services/friends/cmd"},
 		{name: "gateway", path: "./services/gateway/cmd"},
 		{name: "logging", path: "./services/logging/cmd"},
+		{name: "media", path: "./services/media/cmd"},
 		{name: "notification", path: "./services/notification/cmd"},
 		{name: "presence", path: "./services/presence_service/cmd"},
 		{name: "websocket", path: "./services/websocket/cmd"},

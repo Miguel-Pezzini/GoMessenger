@@ -1,14 +1,104 @@
 <script setup lang="ts">
-import { Check, CheckCheck } from 'lucide-vue-next';
+import { onBeforeUnmount, ref, watch } from 'vue';
+import { Check, CheckCheck, Download, FileText } from 'lucide-vue-next';
 
+import { API_BASE_URL } from '../chat/api.ts';
 import { formatMessageTime } from '../chat/format.ts';
-import type { ConversationMessage } from '../chat/types.ts';
+import type { ChatAttachment, ConversationMessage } from '../chat/types.ts';
 
 interface Props {
   message: ConversationMessage;
+  attachmentToken: string;
 }
 
-defineProps<Props>();
+const props = defineProps<Props>();
+const objectUrls = ref<Record<string, string>>({});
+
+const isPreviewable = (attachment: ChatAttachment) => {
+  return (
+    attachment.kind === 'image' ||
+    attachment.kind === 'video' ||
+    attachment.kind === 'audio' ||
+    attachment.content_type === 'application/pdf'
+  );
+};
+
+const loadAttachmentBlob = async (attachment: ChatAttachment) => {
+  if (!props.attachmentToken) {
+    return null;
+  }
+
+  const response = await fetch(`${API_BASE_URL}${attachment.download_url}`, {
+    headers: {
+      Authorization: `Bearer ${props.attachmentToken}`,
+    },
+  });
+  if (!response.ok) {
+    return null;
+  }
+  return response.blob();
+};
+
+const refreshPreviewUrls = async () => {
+  const nextIds = new Set(props.message.attachments.map((attachment) => attachment.id));
+  for (const [id, url] of Object.entries(objectUrls.value)) {
+    if (!nextIds.has(id)) {
+      URL.revokeObjectURL(url);
+      delete objectUrls.value[id];
+    }
+  }
+
+  for (const attachment of props.message.attachments) {
+    if (!isPreviewable(attachment) || objectUrls.value[attachment.id]) {
+      continue;
+    }
+
+    const blob = await loadAttachmentBlob(attachment);
+    if (blob) {
+      objectUrls.value[attachment.id] = URL.createObjectURL(blob);
+    }
+  }
+};
+
+const handleDownload = async (attachment: ChatAttachment) => {
+  const blob = await loadAttachmentBlob(attachment);
+  if (!blob) {
+    return;
+  }
+
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = attachment.filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+};
+
+const formatFileSize = (size: number) => {
+  if (size >= 1024 * 1024) {
+    return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+  }
+  if (size >= 1024) {
+    return `${(size / 1024).toFixed(1)} KB`;
+  }
+  return `${size} B`;
+};
+
+watch(
+  () => [props.attachmentToken, props.message.attachments.map((attachment) => attachment.id).join('|')] as const,
+  () => {
+    void refreshPreviewUrls();
+  },
+  { immediate: true }
+);
+
+onBeforeUnmount(() => {
+  for (const url of Object.values(objectUrls.value)) {
+    URL.revokeObjectURL(url);
+  }
+});
 </script>
 
 <template>
@@ -23,7 +113,49 @@ defineProps<Props>();
           message.isOptimistic ? 'opacity-90' : '',
         ]"
       >
-        <p class="whitespace-pre-wrap break-words text-sm leading-6">{{ message.content }}</p>
+        <p v-if="message.content" class="whitespace-pre-wrap break-words text-sm leading-6">{{ message.content }}</p>
+
+        <div v-if="message.attachments.length" :class="['space-y-2', message.content ? 'mt-3' : '']">
+          <div v-for="attachment in message.attachments" :key="attachment.id" class="overflow-hidden rounded-lg bg-black/5">
+            <img
+              v-if="attachment.kind === 'image' && objectUrls[attachment.id]"
+              :src="objectUrls[attachment.id]"
+              :alt="attachment.filename"
+              class="max-h-80 w-full object-contain"
+            />
+            <video
+              v-else-if="attachment.kind === 'video' && objectUrls[attachment.id]"
+              :src="objectUrls[attachment.id]"
+              class="max-h-80 w-full"
+              controls
+            />
+            <audio
+              v-else-if="attachment.kind === 'audio' && objectUrls[attachment.id]"
+              :src="objectUrls[attachment.id]"
+              class="w-full"
+              controls
+            />
+            <iframe
+              v-else-if="attachment.content_type === 'application/pdf' && objectUrls[attachment.id]"
+              :src="objectUrls[attachment.id]"
+              :title="attachment.filename"
+              class="h-64 w-72 max-w-full border-0 bg-white"
+            />
+
+            <button
+              class="flex w-full items-center gap-3 px-3 py-2 text-left text-xs transition-colors hover:bg-black/5"
+              type="button"
+              @click="handleDownload(attachment)"
+            >
+              <FileText :size="18" class="shrink-0" />
+              <span class="min-w-0 flex-1">
+                <span class="block truncate font-medium">{{ attachment.filename }}</span>
+                <span :class="message.isMine ? 'text-indigo-100/80' : 'text-slate-500'">{{ formatFileSize(attachment.size) }}</span>
+              </span>
+              <Download :size="16" class="shrink-0" />
+            </button>
+          </div>
+        </div>
 
         <div
           :class="[

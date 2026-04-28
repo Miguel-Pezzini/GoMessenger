@@ -29,13 +29,16 @@ const {
   currentUser,
   currentUserId,
   currentFriendCode,
+  draftAttachments,
   handleAcceptRequest,
+  handleAttachFiles,
   handleAuthSubmit: submitAuth,
   handleDeclineRequest,
   handleLeaveConversation,
   handleLoadOlderMessages,
   handleLogout,
   handleRemoveFriend,
+  handleRemoveDraftAttachment,
   handleSelectContact,
   handleSendFriendRequest,
   handleSendMessage,
@@ -44,12 +47,14 @@ const {
   isAuthenticated,
   isFriendsLoading,
   isPeerTyping,
+  isUploadingAttachments,
   pendingRequests,
   selectedContact,
   selectedContactId,
   selectedContactStatus,
   selectedConversationState,
   selectedPresence,
+  sessionToken,
   toggleAuthMode,
   acknowledgeVisibleConversation,
 } = useChatController();
@@ -132,6 +137,7 @@ const handleAuthSubmit = async (payload: { username: string; password: string; m
         <ChatMessages
           :messages="currentMessages"
           :contact-id="selectedContact.id"
+          :attachment-token="sessionToken"
           :has-more="selectedConversationState.hasMore"
           :is-loading-more="selectedConversationState.isLoading"
           :is-peer-typing="isPeerTyping"
@@ -142,6 +148,10 @@ const handleAuthSubmit = async (payload: { username: string; password: string; m
         <MessageInput
           :disabled="composerDisabled"
           :placeholder="composerPlaceholder"
+          :attachments="draftAttachments"
+          :is-uploading-attachments="isUploadingAttachments"
+          @attachFiles="handleAttachFiles"
+          @removeAttachment="handleRemoveDraftAttachment"
           @sendMessage="handleSendMessage"
           @typingStarted="handleTypingStarted"
           @typingStopped="handleTypingStopped"

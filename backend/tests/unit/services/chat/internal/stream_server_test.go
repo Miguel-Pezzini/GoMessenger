@@ -59,6 +59,22 @@ type auditPublisherStub struct {
 	events []audit.Event
 }
 
+type mediaBinderStub struct {
+	messageID   string
+	senderID    string
+	receiverID  string
+	attachments []AttachmentSnapshot
+	err         error
+}
+
+func (m *mediaBinderStub) BindMessage(_ context.Context, messageID, senderID, receiverID string, attachments []AttachmentSnapshot) error {
+	m.messageID = messageID
+	m.senderID = senderID
+	m.receiverID = receiverID
+	m.attachments = attachments
+	return m.err
+}
+
 func (r *streamRepositoryStub) Create(_ context.Context, _ *MessageDB) (*MessageDB, bool, error) {
 	if r.err != nil {
 		return nil, false, r.err
@@ -399,6 +415,110 @@ func TestProcessMessagePublishesAndAcknowledgesPersistedMessages(t *testing.T) {
 	}
 	if fakeRedis.ackCount != 1 {
 		t.Fatalf("expected one ack, got %d", fakeRedis.ackCount)
+	}
+}
+
+func TestProcessMessageBindsAttachmentsBeforePublish(t *testing.T) {
+	fakeRedis := newFakeRedisServer(t, "")
+	defer fakeRedis.close()
+
+	binder := &mediaBinderStub{}
+	attachments := []AttachmentSnapshot{{
+		ID:          "attachment-1",
+		Filename:    "photo.jpg",
+		ContentType: "image/jpeg",
+		Size:        42,
+		Kind:        "image",
+		DownloadURL: "/attachments/attachment-1",
+	}}
+	server := NewServer(
+		"chat-consumer",
+		"chat-stream",
+		"chat-channel",
+		"chat-events",
+		"notification-stream",
+		newRedisClient(fakeRedis.addr()),
+		NewService(&streamRepositoryStub{result: &MessageDB{
+			Id:           "mongo-id",
+			StreamID:     "1-0",
+			SenderID:     "user-a",
+			ReceiverID:   "user-b",
+			Attachments:  attachments,
+			ViewedStatus: ViewedStatusSent,
+		}}),
+		&auditPublisherStub{},
+		binder,
+	)
+	defer server.rdb.Close()
+
+	err := server.processMessage(context.Background(), redis.XMessage{
+		ID: "1-0",
+		Values: map[string]any{
+			"payload": `{"sender_id":"user-a","receiver_id":"user-b","attachments":[{"id":"attachment-1","filename":"photo.jpg","content_type":"image/jpeg","size":42,"kind":"image","download_url":"/attachments/attachment-1"}]}`,
+		},
+	})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if binder.messageID != "mongo-id" || binder.senderID != "user-a" || binder.receiverID != "user-b" {
+		t.Fatalf("unexpected bind request: %+v", binder)
+	}
+	if len(binder.attachments) != 1 || binder.attachments[0].ID != "attachment-1" {
+		t.Fatalf("expected attachment to be bound, got %+v", binder.attachments)
+	}
+	if fakeRedis.publishCount != 1 {
+		t.Fatalf("expected one publish after bind, got %d", fakeRedis.publishCount)
+	}
+	if fakeRedis.ackCount != 1 {
+		t.Fatalf("expected one ack after bind, got %d", fakeRedis.ackCount)
+	}
+}
+
+func TestProcessMessageLeavesPendingWhenAttachmentBindFails(t *testing.T) {
+	fakeRedis := newFakeRedisServer(t, "")
+	defer fakeRedis.close()
+
+	server := NewServer(
+		"chat-consumer",
+		"chat-stream",
+		"chat-channel",
+		"chat-events",
+		"notification-stream",
+		newRedisClient(fakeRedis.addr()),
+		NewService(&streamRepositoryStub{result: &MessageDB{
+			Id:         "mongo-id",
+			StreamID:   "1-0",
+			SenderID:   "user-a",
+			ReceiverID: "user-b",
+			Attachments: []AttachmentSnapshot{{
+				ID:          "attachment-1",
+				Filename:    "photo.jpg",
+				ContentType: "image/jpeg",
+				Size:        42,
+				Kind:        "image",
+				DownloadURL: "/attachments/attachment-1",
+			}},
+			ViewedStatus: ViewedStatusSent,
+		}}),
+		&auditPublisherStub{},
+		&mediaBinderStub{err: errors.New("media down")},
+	)
+	defer server.rdb.Close()
+
+	err := server.processMessage(context.Background(), redis.XMessage{
+		ID: "1-0",
+		Values: map[string]any{
+			"payload": `{"sender_id":"user-a","receiver_id":"user-b","attachments":[{"id":"attachment-1","filename":"photo.jpg","content_type":"image/jpeg","size":42,"kind":"image","download_url":"/attachments/attachment-1"}]}`,
+		},
+	})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if fakeRedis.publishCount != 0 {
+		t.Fatalf("expected no publish when bind fails, got %d", fakeRedis.publishCount)
+	}
+	if fakeRedis.ackCount != 0 {
+		t.Fatalf("expected bind failure to leave message pending, got %d acks", fakeRedis.ackCount)
 	}
 }
 

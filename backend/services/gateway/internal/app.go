@@ -14,6 +14,7 @@ type Config struct {
 	FriendsURL          string
 	WebsocketURL        string
 	ChatURL             string
+	MediaURL            string
 	PresenceURL         string
 	LoggingURL          string
 	AllowedOrigin       string
@@ -29,6 +30,7 @@ func LoadConfig() Config {
 		FriendsURL:          config.MustString("FRIENDS_UPSTREAM_URL"),
 		WebsocketURL:        config.MustString("WEBSOCKET_UPSTREAM_URL"),
 		ChatURL:             config.MustString("CHAT_UPSTREAM_URL"),
+		MediaURL:            config.MustString("MEDIA_UPSTREAM_URL"),
 		PresenceURL:         config.MustString("PRESENCE_UPSTREAM_URL"),
 		LoggingURL:          config.MustString("LOGGING_UPSTREAM_URL"),
 		AllowedOrigin:       config.MustString("GATEWAY_ALLOWED_ORIGIN"),
@@ -77,6 +79,11 @@ func NewRouter(cfg Config) (http.Handler, error) {
 		return nil, err
 	}
 
+	mediaUpstream, err := newUpstreamHandler(cfg.MediaURL)
+	if err != nil {
+		return nil, err
+	}
+
 	presenceUpstream, err := newUpstreamHandler(cfg.PresenceURL)
 	if err != nil {
 		return nil, err
@@ -89,6 +96,8 @@ func NewRouter(cfg Config) (http.Handler, error) {
 
 	mux.Handle("GET /ws", jwtMiddleware.Wrap(websocketUpstream))
 	mux.Handle("GET /messages/{userId}", jwtMiddleware.Wrap(chatUpstream))
+	mux.Handle("POST /attachments", jwtMiddleware.Wrap(mediaUpstream))
+	mux.Handle("GET /attachments/{id}", jwtMiddleware.Wrap(mediaUpstream))
 	mux.Handle("GET /presence/{userId}", jwtMiddleware.Wrap(presenceUpstream))
 	mux.Handle("GET /logs", jwtMiddleware.WrapAdmin(loggingUpstream))
 	mux.Handle("GET /logs/ws", jwtMiddleware.WrapAdmin(loggingUpstream))

@@ -38,6 +38,8 @@ func resetTestState() error {
 	friendsDB := envOrDefault("FRIENDS_MONGO_DB", "friends_db")
 	loggingURI := envOrDefault("LOGGING_MONGO_URI", "mongodb://localhost:27031")
 	loggingDB := envOrDefault("LOGGING_MONGO_DB", "logging_db")
+	mediaURI := envOrDefault("MEDIA_MONGO_URI", "mongodb://localhost:27032")
+	mediaDB := envOrDefault("MEDIA_MONGO_DB", "media_db")
 
 	redisAddr := envOrDefault("REDIS_ADDR", "localhost:6380")
 
@@ -54,6 +56,9 @@ func resetTestState() error {
 	}
 	if err := dropMongoDatabase(ctx, loggingURI, loggingDB); err != nil {
 		errs = append(errs, fmt.Errorf("logging db: %w", err))
+	}
+	if err := dropMongoDatabase(ctx, mediaURI, mediaDB); err != nil {
+		errs = append(errs, fmt.Errorf("media db: %w", err))
 	}
 	if err := flushRedis(redisAddr); err != nil {
 		errs = append(errs, fmt.Errorf("redis: %w", err))

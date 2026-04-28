@@ -84,6 +84,45 @@ func TestCreateUsesStreamIDAsIdempotencyKey(t *testing.T) {
 	}
 }
 
+func TestCreatePersistsAttachmentSnapshots(t *testing.T) {
+	attachments := []AttachmentSnapshot{{
+		ID:          "attachment-1",
+		Filename:    "photo.jpg",
+		ContentType: "image/jpeg",
+		Size:        42,
+		Kind:        "image",
+		DownloadURL: "/attachments/attachment-1",
+	}}
+	repo := &repositoryStub{
+		result: &MessageDB{
+			Id:           "mongo-id",
+			StreamID:     "171234-0",
+			SenderID:     "user-a",
+			ReceiverID:   "user-b",
+			Content:      "",
+			Attachments:  attachments,
+			ViewedStatus: ViewedStatusSent,
+		},
+	}
+	service := NewService(repo)
+
+	res, err := service.Create(context.Background(), MessageRequest{
+		StreamID:    "171234-0",
+		SenderID:    "user-a",
+		ReceiverID:  "user-b",
+		Attachments: attachments,
+	})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if len(repo.message.Attachments) != 1 || repo.message.Attachments[0].ID != "attachment-1" {
+		t.Fatalf("expected repository attachment snapshot, got %+v", repo.message.Attachments)
+	}
+	if len(res.Attachments) != 1 || res.Attachments[0].ID != "attachment-1" {
+		t.Fatalf("expected response attachment snapshot, got %+v", res.Attachments)
+	}
+}
+
 func TestCreateReturnsRepositoryError(t *testing.T) {
 	repo := &repositoryStub{err: errors.New("boom")}
 	service := NewService(repo)

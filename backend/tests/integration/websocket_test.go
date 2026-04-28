@@ -34,18 +34,29 @@ type gatewayMessage struct {
 }
 
 type chatPayload struct {
-	SenderID   string `json:"sender_id"`
-	ReceiverID string `json:"receiver_id"`
-	Content    string `json:"content"`
+	SenderID      string   `json:"sender_id"`
+	ReceiverID    string   `json:"receiver_id"`
+	Content       string   `json:"content"`
+	AttachmentIDs []string `json:"attachment_ids,omitempty"`
 }
 
 type wsMessageResponse struct {
-	ID           string `json:"id"`
-	SenderID     string `json:"sender_id"`
-	ReceiverID   string `json:"receiver_id"`
-	Content      string `json:"content"`
-	Timestamp    int64  `json:"timestamp"`
-	ViewedStatus string `json:"viewed_status"`
+	ID           string               `json:"id"`
+	SenderID     string               `json:"sender_id"`
+	ReceiverID   string               `json:"receiver_id"`
+	Content      string               `json:"content"`
+	Attachments  []attachmentResponse `json:"attachments"`
+	Timestamp    int64                `json:"timestamp"`
+	ViewedStatus string               `json:"viewed_status"`
+}
+
+type attachmentResponse struct {
+	ID          string `json:"id"`
+	Filename    string `json:"filename"`
+	ContentType string `json:"content_type"`
+	Size        int64  `json:"size"`
+	Kind        string `json:"kind"`
+	DownloadURL string `json:"download_url"`
 }
 
 type wsRealtimeEvent struct {
@@ -760,7 +771,7 @@ func readMessageWithRetry(t *testing.T, conn *websocket.Conn) wsMessageResponse 
 		if err := conn.ReadJSON(&msg); err != nil {
 			t.Fatalf("failed reading websocket response: %v", err)
 		}
-		if msg.Content != "" {
+		if msg.Content != "" || len(msg.Attachments) > 0 {
 			return msg
 		}
 	}

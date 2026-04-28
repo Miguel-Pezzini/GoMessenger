@@ -74,10 +74,13 @@ WebSocket message format (client → server):
   "type": "chat_message",
   "payload": {
     "receiver_id": "user-b",
-    "content": "hello"
+    "content": "hello",
+    "attachment_ids": ["attachment-id"]
   }
 }
 ```
+
+Files are uploaded first with authenticated `POST /attachments` multipart requests. Message lists receive attachment metadata on realtime events and history responses, then fetch protected blobs from `GET /attachments/{id}` through the gateway when rendering previews or downloads.
 
 ## Active Work
 

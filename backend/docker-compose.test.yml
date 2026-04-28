@@ -28,3 +28,20 @@ services:
     container_name: mongo_logging_test
     ports:
       - "27031:27017"
+
+  mongo-media-test:
+    image: mongo:7
+    container_name: mongo_media_test
+    ports:
+      - "27032:27017"
+
+  minio-test:
+    image: minio/minio:latest
+    container_name: minio_test
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9002:9000"
+      - "9003:9001"

@@ -31,6 +31,8 @@ type Config struct {
 	NotificationsChannel  string
 	AuditStream           string
 	AllowedOrigins        []string
+	MediaInternalURL      string
+	InternalServiceToken  string
 }
 
 func LoadConfig() Config {
@@ -45,6 +47,8 @@ func LoadConfig() Config {
 		NotificationsChannel:  config.MustString("REDIS_CHANNEL_NOTIFICATIONS"),
 		AuditStream:           config.MustString("REDIS_STREAM_AUDIT_LOGS"),
 		AllowedOrigins:        parseAllowedOrigins(config.String("WEBSOCKET_ALLOWED_ORIGINS", config.String("GATEWAY_ALLOWED_ORIGIN", ""))),
+		MediaInternalURL:      config.MustString("MEDIA_INTERNAL_URL"),
+		InternalServiceToken:  config.String("INTERNAL_SERVICE_TOKEN", "dev-internal-token"),
 	}
 }
 
@@ -56,7 +60,7 @@ func Run() error {
 		return err
 	}
 
-	service := NewService(NewRedisRepository(redisClient), cfg.StreamName)
+	service := NewService(NewRedisRepository(redisClient), cfg.StreamName, NewMediaHTTPClient(cfg.MediaInternalURL, cfg.InternalServiceToken))
 	server := NewServer(cfg.Address, cfg.ChannelName, cfg.FriendEventsChannel, cfg.PresenceEventsChannel, cfg.ChatEventsChannel, cfg.NotificationsChannel, NewHandler(service, audit.NewRedisPublisher(redisClient, cfg.AuditStream), security.NewOriginValidator(cfg.AllowedOrigins)))
 	return server.Start()
 }

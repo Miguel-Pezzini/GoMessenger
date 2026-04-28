@@ -42,6 +42,46 @@ test('reconciles an optimistic sender message with the persisted websocket echo'
   assert.equal(state.messagesById[optimistic.id], undefined);
 });
 
+test('reconciles optimistic attachment-only messages by attachment id', () => {
+  const state = createChatState();
+  const attachment = {
+    id: 'attachment-1',
+    filename: 'photo.jpg',
+    content_type: 'image/jpeg',
+    size: 42,
+    kind: 'image',
+    download_url: '/attachments/attachment-1',
+  };
+  const optimistic = addOptimisticMessage(state, {
+    senderId: 'user-a',
+    receiverId: 'user-b',
+    content: '',
+    attachments: [attachment],
+    timestamp: 1_712_000_000_000,
+  });
+
+  upsertPersistedMessage(
+    state,
+    {
+      id: 'msg-attachment',
+      sender_id: 'user-a',
+      receiver_id: 'user-b',
+      content: '',
+      attachments: [attachment],
+      timestamp: 1_712_000_001,
+      viewed_status: 'sent',
+    },
+    'user-a',
+    'realtime'
+  );
+
+  const messages = getConversationMessages(state, 'user-b');
+  assert.equal(messages.length, 1);
+  assert.equal(messages[0].id, 'msg-attachment');
+  assert.equal(messages[0].attachments[0].id, 'attachment-1');
+  assert.equal(state.messagesById[optimistic.id], undefined);
+});
+
 test('keeps viewed status monotonic as delivery and seen events arrive', () => {
   const state = createChatState();
 

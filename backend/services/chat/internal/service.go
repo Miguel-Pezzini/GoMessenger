@@ -19,6 +19,7 @@ func (s *Service) Create(ctx context.Context, req MessageRequest) (*MessageRespo
 		SenderID:     req.SenderID,
 		ReceiverID:   req.ReceiverID,
 		Content:      req.Content,
+		Attachments:  req.Attachments,
 		Timestamp:    req.Timestamp,
 		ViewedStatus: ViewedStatusSent,
 	}

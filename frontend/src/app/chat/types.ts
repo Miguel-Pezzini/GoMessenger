@@ -30,9 +30,23 @@ export interface ChatMessageResponse {
   sender_id: string;
   receiver_id: string;
   content: string;
+  attachments?: ChatAttachment[];
   created_at?: string;
   timestamp?: string | number;
   viewed_status?: string;
+}
+
+export interface ChatAttachment {
+  id: string;
+  filename: string;
+  content_type: string;
+  size: number;
+  kind: 'image' | 'video' | 'audio' | 'document' | 'file' | string;
+  download_url: string;
+}
+
+export interface UploadAttachmentsResponse {
+  attachments: ChatAttachment[];
 }
 
 export interface ConversationResponse {
@@ -58,6 +72,7 @@ export interface ConversationMessage {
   senderId: string;
   receiverId: string;
   content: string;
+  attachments: ChatAttachment[];
   timestamp: number;
   viewedStatus: ViewedStatus;
   isMine: boolean;

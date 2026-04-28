@@ -18,6 +18,7 @@ import { clearStoredSession, loadStoredSession, parseJwtUserId, saveStoredSessio
 import type {
   AuthMode,
   ContactListItem,
+  ChatAttachment,
   ConversationState,
   Friend,
   FriendRequest,
@@ -61,6 +62,8 @@ export const useChatController = () => {
   const conversationState = ref<Record<string, ConversationState>>({});
   const presenceByUserId = ref<Record<string, PresenceResponse>>({});
   const typingByContactId = ref<Record<string, boolean>>({});
+  const draftAttachments = ref<ChatAttachment[]>([]);
+  const isUploadingAttachments = ref(false);
   const chatState = reactive(createChatState());
 
   const deliveredAcknowledgements = new Set<string>();
@@ -231,7 +234,31 @@ export const useChatController = () => {
     }
 
     const prefix = lastMessage.isMine ? 'You: ' : '';
-    return `${prefix}${lastMessage.content}`;
+    return `${prefix}${previewTextForMessage(lastMessage.content, lastMessage.attachments)}`;
+  }
+
+  function previewTextForMessage(content: string, attachments: ChatAttachment[]) {
+    if (content.trim()) {
+      return content;
+    }
+
+    const attachment = attachments[0];
+    if (!attachment) {
+      return '';
+    }
+
+    switch (attachment.kind) {
+      case 'image':
+        return 'Image';
+      case 'video':
+        return 'Video';
+      case 'audio':
+        return 'Audio';
+      case 'document':
+        return attachment.filename || 'Document';
+      default:
+        return attachment.filename || 'File';
+    }
   }
 
   const contacts = computed<ContactListItem[]>(() => {
@@ -770,7 +797,8 @@ export const useChatController = () => {
     }
 
     const trimmed = text.trim();
-    if (!trimmed) {
+    const attachments = [...draftAttachments.value];
+    if (!trimmed && attachments.length === 0) {
       return;
     }
 
@@ -779,6 +807,7 @@ export const useChatController = () => {
     const sent = sendSocketEnvelope('chat_message', {
       receiver_id: selectedContactId.value,
       content: trimmed,
+      attachment_ids: attachments.map((attachment) => attachment.id),
     });
 
     if (!sent) {
@@ -790,10 +819,37 @@ export const useChatController = () => {
       senderId: currentUserId.value,
       receiverId: selectedContactId.value,
       content: trimmed,
+      attachments,
     });
 
+    draftAttachments.value = [];
     getConversationViewState(selectedContactId.value).hasLoaded = true;
     stopLocalTyping(selectedContactId.value);
+  }
+
+  async function handleAttachFiles(files: File[]) {
+    if (!selectedContactId.value || files.length === 0) {
+      return;
+    }
+    if (draftAttachments.value.length + files.length > 10) {
+      actionError.value = 'You can attach up to 10 files per message.';
+      return;
+    }
+
+    actionError.value = '';
+    isUploadingAttachments.value = true;
+    try {
+      const response = await apiClient.uploadAttachments(files);
+      draftAttachments.value = [...draftAttachments.value, ...response.attachments];
+    } catch (error) {
+      actionError.value = error instanceof Error ? error.message : 'Failed to upload attachments.';
+    } finally {
+      isUploadingAttachments.value = false;
+    }
+  }
+
+  function handleRemoveDraftAttachment(attachmentId: string) {
+    draftAttachments.value = draftAttachments.value.filter((attachment) => attachment.id !== attachmentId);
   }
 
   function handleSelectContact(contactId: string) {
@@ -802,10 +858,12 @@ export const useChatController = () => {
     }
 
     selectedContactId.value = contactId;
+    draftAttachments.value = [];
   }
 
   function handleLeaveConversation() {
     selectedContactId.value = null;
+    draftAttachments.value = [];
   }
 
   async function handleLoadOlderMessages() {
@@ -848,6 +906,7 @@ export const useChatController = () => {
     stopPresencePolling();
     resetTypingState();
     resetChatState();
+    draftAttachments.value = [];
     deliveredAcknowledgements.clear();
     seenAcknowledgements.clear();
     currentUser.value = '';
@@ -948,13 +1007,16 @@ export const useChatController = () => {
     currentUser,
     currentUserId,
     currentFriendCode,
+    draftAttachments,
     handleAcceptRequest,
+    handleAttachFiles,
     handleAuthSubmit,
     handleDeclineRequest,
     handleLeaveConversation,
     handleLoadOlderMessages,
     handleLogout,
     handleRemoveFriend,
+    handleRemoveDraftAttachment,
     handleSelectContact,
     handleSendFriendRequest,
     handleSendMessage,
@@ -963,12 +1025,14 @@ export const useChatController = () => {
     isAuthenticated,
     isFriendsLoading,
     isPeerTyping,
+    isUploadingAttachments,
     pendingRequests,
     selectedContact,
     selectedContactId,
     selectedContactStatus,
     selectedConversationState,
     selectedPresence,
+    sessionToken,
     toggleAuthMode,
     acknowledgeVisibleConversation,
   };
