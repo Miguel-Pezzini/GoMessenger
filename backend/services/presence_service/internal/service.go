@@ -3,9 +3,16 @@ package presence
 import (
 	"context"
 	"errors"
+	"sync"
+	"time"
 )
 
 var ErrPresenceNotFound = errors.New("presence not found")
+
+const (
+	activeUserLookupConcurrency = 8
+	activeUserLookupTimeout     = 2 * time.Second
+)
 
 type Service struct {
 	repo           Repository
@@ -82,22 +89,47 @@ func (s *Service) ListActiveUsers(ctx context.Context, limit int) (ActiveUsersRe
 		return ActiveUsersResponse{}, err
 	}
 
-	users := make([]ActiveUser, 0, len(presences))
-	for _, presence := range presences {
-		user := ActiveUser{
+	users := make([]ActiveUser, len(presences))
+	for i, presence := range presences {
+		users[i] = ActiveUser{
 			UserID:        presence.UserID,
 			Status:        presence.Status,
 			LastSeen:      presence.LastSeen,
 			CurrentChatID: presence.CurrentChatID,
 		}
-		if s.usernameLookup != nil {
-			username, err := s.usernameLookup.LookupUsernameByUserID(ctx, presence.UserID)
-			if err == nil {
-				user.Username = username
-			}
-		}
-		users = append(users, user)
 	}
+
+	if s.usernameLookup == nil || len(presences) == 0 {
+		return ActiveUsersResponse{Users: users, Count: len(users)}, nil
+	}
+
+	lookupCtx, cancel := context.WithTimeout(ctx, activeUserLookupTimeout)
+	defer cancel()
+
+	sem := make(chan struct{}, activeUserLookupConcurrency)
+	var wg sync.WaitGroup
+
+launchLoop:
+	for i, presence := range presences {
+		select {
+		case sem <- struct{}{}:
+		case <-lookupCtx.Done():
+			break launchLoop
+		}
+
+		wg.Add(1)
+		go func(index int, userID string) {
+			defer wg.Done()
+			defer func() { <-sem }()
+
+			username, err := s.usernameLookup.LookupUsernameByUserID(lookupCtx, userID)
+			if err == nil {
+				users[index].Username = username
+			}
+		}(i, presence.UserID)
+	}
+
+	wg.Wait()
 
 	return ActiveUsersResponse{Users: users, Count: len(users)}, nil
 }

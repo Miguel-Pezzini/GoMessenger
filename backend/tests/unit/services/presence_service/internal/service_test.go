@@ -3,6 +3,8 @@ package presence
 import (
 	"context"
 	"errors"
+	"fmt"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -247,6 +249,80 @@ func TestListActiveUsersEnrichesUsernames(t *testing.T) {
 	if got.Users[1].Username != "" {
 		t.Fatalf("expected missing username to be omitted, got %q", got.Users[1].Username)
 	}
+}
+
+func TestListActiveUsersBoundsUsernameLookupConcurrency(t *testing.T) {
+	repo := &repositoryStub{}
+	for i := 0; i < 32; i++ {
+		repo.activePresence = append(repo.activePresence, Presence{
+			UserID: fmt.Sprintf("user-%d", i),
+			Status: StatusOnline,
+		})
+	}
+
+	var inFlight int32
+	var maxInFlight int32
+	lookup := usernameLookupFunc(func(_ context.Context, userID string) (string, error) {
+		current := atomic.AddInt32(&inFlight, 1)
+		for {
+			seen := atomic.LoadInt32(&maxInFlight)
+			if current <= seen || atomic.CompareAndSwapInt32(&maxInFlight, seen, current) {
+				break
+			}
+		}
+		defer atomic.AddInt32(&inFlight, -1)
+
+		time.Sleep(20 * time.Millisecond)
+		return "name-" + userID, nil
+	})
+
+	service := NewService(repo, "presence.updated", lookup)
+
+	got, err := service.ListActiveUsers(context.Background(), 100)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if got.Count != len(repo.activePresence) {
+		t.Fatalf("expected count %d, got %d", len(repo.activePresence), got.Count)
+	}
+	if int(maxInFlight) > activeUserLookupConcurrency {
+		t.Fatalf("expected max in-flight <= %d, got %d", activeUserLookupConcurrency, maxInFlight)
+	}
+}
+
+func TestListActiveUsersUsesSharedLookupTimeout(t *testing.T) {
+	repo := &repositoryStub{}
+	for i := 0; i < 64; i++ {
+		repo.activePresence = append(repo.activePresence, Presence{
+			UserID: fmt.Sprintf("user-%d", i),
+			Status: StatusOnline,
+		})
+	}
+
+	lookup := usernameLookupFunc(func(ctx context.Context, _ string) (string, error) {
+		<-ctx.Done()
+		return "", ctx.Err()
+	})
+	service := NewService(repo, "presence.updated", lookup)
+
+	start := time.Now()
+	got, err := service.ListActiveUsers(context.Background(), 100)
+	elapsed := time.Since(start)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if got.Count != len(repo.activePresence) {
+		t.Fatalf("expected count %d, got %d", len(repo.activePresence), got.Count)
+	}
+	if elapsed >= activeUserLookupTimeout+time.Second {
+		t.Fatalf("expected list to finish near shared timeout (%v), took %v", activeUserLookupTimeout, elapsed)
+	}
+}
+
+type usernameLookupFunc func(ctx context.Context, userID string) (string, error)
+
+func (f usernameLookupFunc) LookupUsernameByUserID(ctx context.Context, userID string) (string, error) {
+	return f(ctx, userID)
 }
 
 func assertPresenceEqual(t *testing.T, expected, got Presence) {
