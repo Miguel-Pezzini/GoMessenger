@@ -14,6 +14,9 @@ import (
 
 type repositoryStub struct {
 	attachments map[string]Attachment
+	createCalls int
+	createErrAt int
+	markDeleted []string
 }
 
 func newRepositoryStub() *repositoryStub {
@@ -21,6 +24,10 @@ func newRepositoryStub() *repositoryStub {
 }
 
 func (r *repositoryStub) Create(_ context.Context, attachment *Attachment) error {
+	r.createCalls++
+	if r.createErrAt > 0 && r.createCalls == r.createErrAt {
+		return errors.New("create failed")
+	}
 	r.attachments[attachment.ID] = *attachment
 	return nil
 }
@@ -88,6 +95,7 @@ func (r *repositoryStub) MarkDeleted(_ context.Context, id string) error {
 	}
 	attachment.Status = StatusDeleted
 	r.attachments[id] = attachment
+	r.markDeleted = append(r.markDeleted, id)
 	return nil
 }
 
@@ -170,6 +178,70 @@ func TestUploadFilesRejectsOversizedFile(t *testing.T) {
 	}})
 	if !errors.Is(err, ErrInvalidInput) {
 		t.Fatalf("expected invalid input error, got %v", err)
+	}
+}
+
+func TestUploadFilesRejectsInvalidBatchWithoutSideEffects(t *testing.T) {
+	repo := newRepositoryStub()
+	storage := newStorageStub()
+	service := NewService(repo, storage, time.Hour)
+
+	files := multipartFiles(
+		t,
+		"photo.jpg",
+		"image/jpeg",
+		[]byte("image-bytes"),
+	)
+	files = append(files, &multipart.FileHeader{
+		Filename: "empty.txt",
+		Size:     0,
+	})
+
+	_, err := service.UploadFiles(context.Background(), "user-a", files)
+	if !errors.Is(err, ErrInvalidInput) {
+		t.Fatalf("expected invalid input error, got %v", err)
+	}
+	if len(repo.attachments) != 0 {
+		t.Fatalf("expected no attachment records, got %d", len(repo.attachments))
+	}
+	if len(storage.objects) != 0 {
+		t.Fatalf("expected no uploaded objects, got %d", len(storage.objects))
+	}
+}
+
+func TestUploadFilesRollsBackPreviouslyCreatedAttachmentsOnFailure(t *testing.T) {
+	repo := newRepositoryStub()
+	repo.createErrAt = 2
+	storage := newStorageStub()
+	service := NewService(repo, storage, time.Hour)
+
+	files := multipartFiles(
+		t,
+		"first.jpg",
+		"image/jpeg",
+		[]byte("first-image"),
+		"second.jpg",
+		"image/jpeg",
+		[]byte("second-image"),
+	)
+
+	_, err := service.UploadFiles(context.Background(), "user-a", files)
+	if err == nil {
+		t.Fatalf("expected upload error")
+	}
+	if len(storage.objects) != 0 {
+		t.Fatalf("expected uploaded objects to be rolled back, got %d", len(storage.objects))
+	}
+	if len(repo.attachments) != 1 {
+		t.Fatalf("expected one created attachment record before rollback, got %d", len(repo.attachments))
+	}
+	for _, attachment := range repo.attachments {
+		if attachment.Status != StatusDeleted {
+			t.Fatalf("expected rolled back attachment status deleted, got %s", attachment.Status)
+		}
+	}
+	if len(repo.markDeleted) != 1 {
+		t.Fatalf("expected one deleted marker, got %d", len(repo.markDeleted))
 	}
 }
 
@@ -289,20 +361,43 @@ func TestCleanupExpiredDeletesObjectsAndMarksMetadataDeleted(t *testing.T) {
 	}
 }
 
-func multipartFiles(t *testing.T, filename, contentType string, payload []byte) []*multipart.FileHeader {
+func multipartFiles(t *testing.T, filename, contentType string, payload []byte, additional ...interface{}) []*multipart.FileHeader {
 	t.Helper()
 
 	var body bytes.Buffer
 	writer := multipart.NewWriter(&body)
-	partHeader := make(textproto.MIMEHeader)
-	partHeader.Set("Content-Disposition", `form-data; name="files"; filename="`+filename+`"`)
-	partHeader.Set("Content-Type", contentType)
-	part, err := writer.CreatePart(partHeader)
-	if err != nil {
-		t.Fatalf("failed to create multipart part: %v", err)
+	writePart := func(partFilename, partContentType string, partPayload []byte) {
+		t.Helper()
+		partHeader := make(textproto.MIMEHeader)
+		partHeader.Set("Content-Disposition", `form-data; name="files"; filename="`+partFilename+`"`)
+		partHeader.Set("Content-Type", partContentType)
+		part, err := writer.CreatePart(partHeader)
+		if err != nil {
+			t.Fatalf("failed to create multipart part: %v", err)
+		}
+		if _, err := part.Write(partPayload); err != nil {
+			t.Fatalf("failed to write multipart part: %v", err)
+		}
 	}
-	if _, err := part.Write(payload); err != nil {
-		t.Fatalf("failed to write multipart part: %v", err)
+
+	writePart(filename, contentType, payload)
+	if len(additional)%3 != 0 {
+		t.Fatalf("additional part args must be triples: filename, contentType, payload")
+	}
+	for i := 0; i < len(additional); i += 3 {
+		partFilename, ok := additional[i].(string)
+		if !ok {
+			t.Fatalf("expected additional filename to be string at index %d", i)
+		}
+		partContentType, ok := additional[i+1].(string)
+		if !ok {
+			t.Fatalf("expected additional content type to be string at index %d", i+1)
+		}
+		partPayload, ok := additional[i+2].([]byte)
+		if !ok {
+			t.Fatalf("expected additional payload to be []byte at index %d", i+2)
+		}
+		writePart(partFilename, partContentType, partPayload)
 	}
 	if err := writer.Close(); err != nil {
 		t.Fatalf("failed to close multipart writer: %v", err)

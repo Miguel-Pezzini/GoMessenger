@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -10,6 +11,10 @@ import (
 	"net/textproto"
 	"testing"
 	"time"
+
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type uploadAttachmentsResponse struct {
@@ -120,21 +125,51 @@ func TestAttachmentsFlowRealtimeHistoryAndDownloadAuthorization(t *testing.T) {
 	}
 }
 
+func TestUploadAttachmentsBatchFailureDoesNotLeavePersistedMetadata(t *testing.T) {
+	t.Parallel()
+
+	ts := time.Now().UnixNano()
+	token := registerOrLogin(t, fmt.Sprintf("attach_batch_%d", ts), "123456")
+	ownerID := extractUserIDFromJWT(t, token)
+	filename := fmt.Sprintf("orphan-check-%d.txt", ts)
+
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	writeMultipartPart(t, writer, filename, "text/plain", []byte("valid-content"))
+	writeMultipartPart(t, writer, "empty.txt", "text/plain", []byte{})
+	if err := writer.Close(); err != nil {
+		t.Fatalf("failed to close multipart writer: %v", err)
+	}
+
+	req, err := http.NewRequest(http.MethodPost, gatewayBaseURL+"/attachments", &body)
+	if err != nil {
+		t.Fatalf("failed to create upload request: %v", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("failed to upload mixed batch: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusBadRequest {
+		payload, _ := io.ReadAll(resp.Body)
+		t.Fatalf("expected status 400, got %d: %s", resp.StatusCode, string(payload))
+	}
+
+	count := countAttachmentMetadataByOwnerAndFilename(t, ownerID, filename)
+	if count != 0 {
+		t.Fatalf("expected failed batch to leave no metadata, found %d records", count)
+	}
+}
+
 func uploadAttachment(t *testing.T, token, filename, contentType string, payload []byte) attachmentResponse {
 	t.Helper()
 
 	var body bytes.Buffer
 	writer := multipart.NewWriter(&body)
-	header := make(textproto.MIMEHeader)
-	header.Set("Content-Disposition", fmt.Sprintf(`form-data; name="files"; filename="%s"`, filename))
-	header.Set("Content-Type", contentType)
-	part, err := writer.CreatePart(header)
-	if err != nil {
-		t.Fatalf("failed to create multipart part: %v", err)
-	}
-	if _, err := part.Write(payload); err != nil {
-		t.Fatalf("failed to write multipart part: %v", err)
-	}
+	writeMultipartPart(t, writer, filename, contentType, payload)
 	if err := writer.Close(); err != nil {
 		t.Fatalf("failed to close multipart writer: %v", err)
 	}
@@ -165,6 +200,47 @@ func uploadAttachment(t *testing.T, token, filename, contentType string, payload
 		t.Fatalf("expected one uploaded attachment, got %d", len(result.Attachments))
 	}
 	return result.Attachments[0]
+}
+
+func writeMultipartPart(t *testing.T, writer *multipart.Writer, filename, contentType string, payload []byte) {
+	t.Helper()
+
+	header := make(textproto.MIMEHeader)
+	header.Set("Content-Disposition", fmt.Sprintf(`form-data; name="files"; filename="%s"`, filename))
+	header.Set("Content-Type", contentType)
+	part, err := writer.CreatePart(header)
+	if err != nil {
+		t.Fatalf("failed to create multipart part: %v", err)
+	}
+	if _, err := part.Write(payload); err != nil {
+		t.Fatalf("failed to write multipart part: %v", err)
+	}
+}
+
+func countAttachmentMetadataByOwnerAndFilename(t *testing.T, ownerID, filename string) int64 {
+	t.Helper()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	uri := envOrDefault("MEDIA_MONGO_URI", "mongodb://localhost:27032")
+	dbName := envOrDefault("MEDIA_MONGO_DB", "media_db")
+
+	client, err := mongo.Connect(ctx, options.Client().ApplyURI(normalizeLocalMongoURI(uri)))
+	if err != nil {
+		t.Fatalf("failed to connect media mongo: %v", err)
+	}
+	defer client.Disconnect(ctx)
+
+	count, err := client.Database(dbName).Collection("attachments").CountDocuments(ctx, bson.M{
+		"owner_id": ownerID,
+		"filename": filename,
+		"status":   "uploaded",
+	})
+	if err != nil {
+		t.Fatalf("failed to count attachment metadata: %v", err)
+	}
+	return count
 }
 
 func downloadAttachment(t *testing.T, token, attachmentID string) ([]byte, int) {
