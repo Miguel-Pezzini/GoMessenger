@@ -27,6 +27,24 @@ func (r *serviceRepositoryStub) Publish(channelName, payload string) error {
 
 func (r *serviceRepositoryStub) Subscribe(_ string, _ func(payload string)) {}
 
+type mediaPreparerStub struct {
+	senderID      string
+	receiverID    string
+	attachmentIDs []string
+	attachments   []AttachmentSnapshot
+	err           error
+}
+
+func (m *mediaPreparerStub) PrepareMessage(senderID, receiverID string, attachmentIDs []string) ([]AttachmentSnapshot, error) {
+	m.senderID = senderID
+	m.receiverID = receiverID
+	m.attachmentIDs = attachmentIDs
+	if m.err != nil {
+		return nil, m.err
+	}
+	return m.attachments, nil
+}
+
 func TestPersistMessageUsesAuthenticatedUserAsSender(t *testing.T) {
 	repo := &serviceRepositoryStub{}
 	service := NewService(repo, "chat-stream")
@@ -88,7 +106,7 @@ func TestPersistMessageRejectsMissingReceiverID(t *testing.T) {
 	}
 }
 
-func TestPersistMessageRejectsBlankContent(t *testing.T) {
+func TestPersistMessageRejectsBlankContentWithoutAttachments(t *testing.T) {
 	repo := &serviceRepositoryStub{}
 	service := NewService(repo, "chat-stream")
 
@@ -99,8 +117,49 @@ func TestPersistMessageRejectsBlankContent(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected validation error, got nil")
 	}
-	if err.Error() != "content is required" {
+	if err.Error() != "content or attachment_ids is required" {
 		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestPersistMessageAllowsAttachmentOnlyMessage(t *testing.T) {
+	repo := &serviceRepositoryStub{}
+	media := &mediaPreparerStub{
+		attachments: []AttachmentSnapshot{{
+			ID:          "attachment-1",
+			Filename:    "photo.jpg",
+			ContentType: "image/jpeg",
+			Size:        42,
+			Kind:        "image",
+			DownloadURL: "/attachments/attachment-1",
+		}},
+	}
+	service := NewService(repo, "chat-stream", media)
+
+	err := service.PersistMessage("user-auth", ChatMessagePayload{
+		ReceiverID:    " user-b ",
+		AttachmentIDs: []string{" attachment-1 "},
+	})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	if media.senderID != "user-auth" || media.receiverID != "user-b" {
+		t.Fatalf("unexpected media prepare users: %s -> %s", media.senderID, media.receiverID)
+	}
+	if len(media.attachmentIDs) != 1 || media.attachmentIDs[0] != "attachment-1" {
+		t.Fatalf("unexpected attachment ids: %+v", media.attachmentIDs)
+	}
+
+	var payload ChatStreamPayload
+	if err := json.Unmarshal([]byte(repo.payload), &payload); err != nil {
+		t.Fatalf("failed to decode stream payload: %v", err)
+	}
+	if payload.Content != "" {
+		t.Fatalf("expected empty content, got %q", payload.Content)
+	}
+	if len(payload.Attachments) != 1 || payload.Attachments[0].ID != "attachment-1" {
+		t.Fatalf("expected prepared attachment in payload, got %+v", payload.Attachments)
 	}
 }
 

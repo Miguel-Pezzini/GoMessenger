@@ -19,7 +19,8 @@ GoMessenger/
 │   ├── chat/                   # HTTP :8082 + Redis Stream consumer — history API and MongoDB persistence
 │   ├── presence_service/       # HTTP :8083 — presence snapshot API + Redis lifecycle consumer
 │   ├── logging/                # HTTP :8084 + Redis Stream consumer — audit log API and persistence
-│   └── notification/           # HTTP :8085 + Redis Stream consumer — notification routing
+│   ├── notification/           # HTTP :8085 + Redis Stream consumer — notification routing
+│   └── media/                  # HTTP :8086 — attachment metadata, storage proxy, internal binding API
 ├── internal/platform/          # Shared utilities (audit, config, mongo, redis)
 ├── tests/
 │   ├── integration/            # End-to-end tests (separate Go module in go.work)
@@ -84,6 +85,8 @@ docker-compose up -d
 | mongo_user    | localhost:27019 | auth service          |
 | mongo_friends | localhost:27020 | friends service       |
 | mongo_logging | localhost:27021 | logging service       |
+| mongo_media   | localhost:27022 | media service         |
+| minio         | localhost:9000  | attachment objects    |
 
 ---
 
@@ -102,6 +105,7 @@ go run ./services/gateway/cmd
 go run ./services/logging/cmd
 go run ./services/notification/cmd
 go run ./services/presence_service/cmd
+go run ./services/media/cmd
 ```
 
 ---
@@ -117,6 +121,7 @@ CHAT_ADDR=:8082
 PRESENCE_ADDR=:8083
 LOGGING_ADDR=:8084
 NOTIFICATION_ADDR=:8085
+MEDIA_ADDR=:8086
 REDIS_ADDR=localhost:6379
 REDIS_STREAM_CHAT=chat.message.created
 REDIS_STREAM_AUDIT_LOGS=audit.logs
@@ -137,7 +142,16 @@ WEBSOCKET_UPSTREAM_URL=http://localhost:8081
 CHAT_UPSTREAM_URL=http://localhost:8082
 PRESENCE_UPSTREAM_URL=http://localhost:8083
 LOGGING_UPSTREAM_URL=http://localhost:8084
+MEDIA_UPSTREAM_URL=http://localhost:8086
+MEDIA_INTERNAL_URL=http://localhost:8086
+MEDIA_MONGO_URI=mongodb://localhost:27022
+MEDIA_MONGO_DATABASE=media_db
+MEDIA_STORAGE_ENDPOINT=http://localhost:9000
+MEDIA_STORAGE_BUCKET=gomessenger-attachments
+MEDIA_STORAGE_ACCESS_KEY=minioadmin
+MEDIA_STORAGE_SECRET_KEY=minioadmin
 JWT_SECRET=secret-key
+INTERNAL_SERVICE_TOKEN=dev-internal-token
 ```
 
 See `.env_example` for the full default set. Config is loaded via `internal/platform/config/env.go` (`String()`, `MustString()`).
@@ -156,11 +170,12 @@ Gateway :8080  ──HTTP proxy──▶  Auth :50051  ──▶  MongoDB (userd
   │  (gateway validates JWT, proxies to websocket)
   ▼
 Websocket :8081
-  │ XAdd  "payload": <json>
+  │ validate attachments with Media, then XAdd "payload": <json>
   ▼
 Redis Stream  (REDIS_STREAM_CHAT)
   ▼
 Chat service :8082  ──▶  MongoDB (chatdb, collection: messages)
+  │ bind attachments with Media
   │ XPublish
   ▼
 Redis Pub/Sub  (REDIS_CHANNEL_CHAT)
@@ -202,6 +217,16 @@ The `payload` field is a JSON string:
   "sender_id":   "user-a",
   "receiver_id": "user-b",
   "content":     "hello",
+  "attachments": [
+    {
+      "id": "attachment-id",
+      "filename": "photo.jpg",
+      "content_type": "image/jpeg",
+      "size": 12345,
+      "kind": "image",
+      "download_url": "/attachments/attachment-id"
+    }
+  ],
   "timestamp":   1712000000
 }
 ```
@@ -216,6 +241,7 @@ Published by chat service after MongoDB write:
   "sender_id":   "user-a",
   "receiver_id": "user-b",
   "content":     "hello",
+  "attachments": [],
   "timestamp":   1712000000
 }
 ```
@@ -270,10 +296,31 @@ stream_id   string   (unique, sparse — used for idempotency)
 sender_id   string
 receiver_id string
 content     string
+attachments []attachment snapshot
 timestamp   int64
 ```
 
 The Redis stream entry ID is stored as `stream_id`. The upsert uses `$setOnInsert` so replayed messages are safe.
+
+### media_db — `attachments` collection
+
+```
+_id                 ObjectID
+owner_id            string
+object_key          string
+filename            string
+content_type        string
+size                int64
+kind                string
+status              string   (uploaded, bound, deleted)
+bound_message_id    string
+authorized_user_ids []string
+created_at          time.Time
+updated_at          time.Time
+expires_at          *time.Time
+```
+
+Clients upload bytes through `POST /attachments` before sending a chat event. Chat messages only carry attachment metadata and `attachment_ids`; file bytes never go through WebSocket, Redis, or chat history.
 
 ---
 

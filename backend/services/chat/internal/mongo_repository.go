@@ -14,13 +14,14 @@ type MongoRepository struct {
 }
 
 type messageDocument struct {
-	ID           primitive.ObjectID `bson:"_id,omitempty"`
-	StreamID     string             `bson:"stream_id"`
-	SenderID     string             `bson:"sender_id"`
-	ReceiverID   string             `bson:"receiver_id"`
-	Content      string             `bson:"content"`
-	Timestamp    int64              `bson:"timestamp,omitempty"`
-	ViewedStatus string             `bson:"viewed_status,omitempty"`
+	ID           primitive.ObjectID   `bson:"_id,omitempty"`
+	StreamID     string               `bson:"stream_id"`
+	SenderID     string               `bson:"sender_id"`
+	ReceiverID   string               `bson:"receiver_id"`
+	Content      string               `bson:"content"`
+	Attachments  []AttachmentSnapshot `bson:"attachments,omitempty"`
+	Timestamp    int64                `bson:"timestamp,omitempty"`
+	ViewedStatus string               `bson:"viewed_status,omitempty"`
 }
 
 func NewMongoRepository(db *mongo.Database) (*MongoRepository, error) {
@@ -63,6 +64,7 @@ func (r *MongoRepository) Create(ctx context.Context, message *MessageDB) (*Mess
 			"sender_id":     message.SenderID,
 			"receiver_id":   message.ReceiverID,
 			"content":       message.Content,
+			"attachments":   normalizeAttachments(message.Attachments),
 			"timestamp":     message.Timestamp,
 			"viewed_status": NormalizeViewedStatus(message.ViewedStatus),
 		},
@@ -159,6 +161,7 @@ func mapMessageDocument(doc messageDocument) *MessageDB {
 		SenderID:     doc.SenderID,
 		ReceiverID:   doc.ReceiverID,
 		Content:      doc.Content,
+		Attachments:  normalizeAttachments(doc.Attachments),
 		Timestamp:    doc.Timestamp,
 		ViewedStatus: NormalizeViewedStatus(doc.ViewedStatus),
 	}

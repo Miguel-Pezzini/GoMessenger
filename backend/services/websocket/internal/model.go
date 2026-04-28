@@ -11,12 +11,13 @@ func (e ValidationError) Error() string {
 }
 
 type MessageResponse struct {
-	ID           string `json:"id"`
-	SenderID     string `json:"sender_id"`
-	ReceiverID   string `json:"receiver_id"`
-	Content      string `json:"content"`
-	Timestamp    int64  `json:"timestamp,omitempty"`
-	ViewedStatus string `json:"viewed_status,omitempty"`
+	ID           string               `json:"id"`
+	SenderID     string               `json:"sender_id"`
+	ReceiverID   string               `json:"receiver_id"`
+	Content      string               `json:"content"`
+	Attachments  []AttachmentSnapshot `json:"attachments"`
+	Timestamp    int64                `json:"timestamp,omitempty"`
+	ViewedStatus string               `json:"viewed_status,omitempty"`
 }
 
 type GatewayMessage struct {
@@ -25,9 +26,26 @@ type GatewayMessage struct {
 }
 
 type ChatMessagePayload struct {
-	SenderID   string `json:"sender_id"`
-	ReceiverID string `json:"receiver_id"`
-	Content    string `json:"content"`
+	SenderID      string   `json:"sender_id"`
+	ReceiverID    string   `json:"receiver_id"`
+	Content       string   `json:"content"`
+	AttachmentIDs []string `json:"attachment_ids,omitempty"`
+}
+
+type ChatStreamPayload struct {
+	SenderID    string               `json:"sender_id"`
+	ReceiverID  string               `json:"receiver_id"`
+	Content     string               `json:"content"`
+	Attachments []AttachmentSnapshot `json:"attachments,omitempty"`
+}
+
+type AttachmentSnapshot struct {
+	ID          string `json:"id"`
+	Filename    string `json:"filename"`
+	ContentType string `json:"content_type"`
+	Size        int64  `json:"size"`
+	Kind        string `json:"kind"`
+	DownloadURL string `json:"download_url"`
 }
 
 type ChatInteractionPayload struct {

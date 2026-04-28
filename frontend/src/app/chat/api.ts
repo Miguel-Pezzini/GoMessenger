@@ -5,6 +5,7 @@ import type {
   Friend,
   FriendRequest,
   PresenceResponse,
+  UploadAttachmentsResponse,
 } from './types.ts';
 
 export const API_BASE_URL = 'http://localhost:8080';
@@ -74,7 +75,8 @@ export const createApiClient = (options: ApiClientOptions) => {
     const headers = new Headers(init.headers);
     headers.set('Authorization', `Bearer ${token}`);
 
-    if (init.body && !headers.has('Content-Type')) {
+    const isFormData = typeof FormData !== 'undefined' && init.body instanceof FormData;
+    if (init.body && !headers.has('Content-Type') && !isFormData) {
       headers.set('Content-Type', 'application/json');
     }
 
@@ -100,6 +102,27 @@ export const createApiClient = (options: ApiClientOptions) => {
     }
 
     return payload as T;
+  };
+
+  const authBlob = async (path: string, fallback = 'Request failed.') => {
+    const token = options.getToken();
+    if (!token) {
+      throw new Error('Missing session token. Please sign in again.');
+    }
+
+    const response = await fetch(`${API_BASE_URL}${path}`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (response.status === 401) {
+      options.onUnauthorized();
+    }
+    if (!response.ok) {
+      throw new Error(`${fallback} (${response.status})`);
+    }
+    return response.blob();
   };
 
   return {
@@ -133,6 +156,21 @@ export const createApiClient = (options: ApiClientOptions) => {
 
       return payload as PresenceResponse;
     },
+    uploadAttachments: (files: File[]) => {
+      const form = new FormData();
+      for (const file of files) {
+        form.append('files', file);
+      }
+      return authFetch<UploadAttachmentsResponse>(
+        '/attachments',
+        {
+          method: 'POST',
+          body: form,
+        },
+        'Failed to upload attachments.'
+      );
+    },
+    fetchAttachmentBlob: (downloadUrl: string) => authBlob(downloadUrl, 'Failed to load attachment.'),
     sendFriendRequest: (receiverId: string) =>
       authFetch<FriendRequest>(
         '/friends/requests',
@@ -169,10 +207,27 @@ export const isPersistedChatMessage = (value: unknown): value is ChatMessageResp
   }
 
   const candidate = value as Record<string, unknown>;
+  const attachments = candidate.attachments;
   return (
     typeof candidate.id === 'string' &&
     typeof candidate.sender_id === 'string' &&
     typeof candidate.receiver_id === 'string' &&
-    typeof candidate.content === 'string'
+    typeof candidate.content === 'string' &&
+    (attachments === undefined ||
+      (Array.isArray(attachments) &&
+        attachments.every((attachment) => {
+          if (!attachment || typeof attachment !== 'object') {
+            return false;
+          }
+          const item = attachment as Record<string, unknown>;
+          return (
+            typeof item.id === 'string' &&
+            typeof item.filename === 'string' &&
+            typeof item.content_type === 'string' &&
+            typeof item.size === 'number' &&
+            typeof item.kind === 'string' &&
+            typeof item.download_url === 'string'
+          );
+        })))
   );
 };

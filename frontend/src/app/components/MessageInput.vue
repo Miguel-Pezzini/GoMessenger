@@ -1,26 +1,35 @@
 <script setup lang="ts">
 import { nextTick, onBeforeUnmount, ref, watch } from 'vue';
-import { Paperclip, Send, Smile } from 'lucide-vue-next';
+import { FileText, Paperclip, Send, Smile, X } from 'lucide-vue-next';
+
+import type { ChatAttachment } from '../chat/types.ts';
 
 const props = withDefaults(
   defineProps<{
     disabled?: boolean;
     placeholder?: string;
+    attachments?: ChatAttachment[];
+    isUploadingAttachments?: boolean;
   }>(),
   {
     disabled: false,
     placeholder: 'Type a message',
+    attachments: () => [],
+    isUploadingAttachments: false,
   }
 );
 
 const emit = defineEmits<{
   sendMessage: [text: string];
+  attachFiles: [files: File[]];
+  removeAttachment: [attachmentId: string];
   typingStarted: [];
   typingStopped: [];
 }>();
 
 const message = ref('');
 const textareaRef = ref<HTMLTextAreaElement | null>(null);
+const fileInputRef = ref<HTMLInputElement | null>(null);
 const isTyping = ref(false);
 
 let typingStopTimer: number | null = null;
@@ -74,7 +83,7 @@ const emitTypingStarted = () => {
 
 const handleSend = () => {
   const trimmed = message.value.trim();
-  if (!props.disabled && trimmed) {
+  if (!props.disabled && !props.isUploadingAttachments && (trimmed || props.attachments.length > 0)) {
     emit('sendMessage', trimmed);
     message.value = '';
     emitTypingStopped();
@@ -83,6 +92,22 @@ const handleSend = () => {
       resizeTextarea();
     });
   }
+};
+
+const openFilePicker = () => {
+  if (props.disabled || props.isUploadingAttachments || props.attachments.length >= 10) {
+    return;
+  }
+  fileInputRef.value?.click();
+};
+
+const handleFileChange = (event: Event) => {
+  const input = event.target as HTMLInputElement;
+  const files = Array.from(input.files ?? []);
+  if (files.length > 0) {
+    emit('attachFiles', files);
+  }
+  input.value = '';
 };
 
 const handleKeyDown = (event: KeyboardEvent) => {
@@ -129,8 +154,34 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="border-t border-white/70 bg-white/85 p-4 shadow-lg backdrop-blur-sm">
+    <div v-if="props.attachments.length || props.isUploadingAttachments" class="mb-3 ml-0 flex flex-wrap gap-2 md:ml-20">
+      <div
+        v-for="attachment in props.attachments"
+        :key="attachment.id"
+        class="flex max-w-full items-center gap-2 rounded-lg border border-indigo-100 bg-white px-3 py-2 text-xs text-slate-700 shadow-sm"
+      >
+        <FileText :size="14" class="shrink-0 text-indigo-500" />
+        <span class="max-w-48 truncate">{{ attachment.filename }}</span>
+        <button
+          class="inline-flex size-5 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
+          type="button"
+          @click="emit('removeAttachment', attachment.id)"
+        >
+          <X :size="12" />
+        </button>
+      </div>
+      <span v-if="props.isUploadingAttachments" class="rounded-lg border border-indigo-100 bg-indigo-50 px-3 py-2 text-xs font-medium text-indigo-600">
+        Uploading...
+      </span>
+    </div>
     <div class="flex items-end gap-2">
-      <button class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-medium transition-colors hover:bg-indigo-50">
+      <input ref="fileInputRef" class="hidden" multiple type="file" @change="handleFileChange" />
+      <button
+        :disabled="props.disabled || props.isUploadingAttachments || props.attachments.length >= 10"
+        class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-medium transition-colors hover:bg-indigo-50 disabled:pointer-events-none disabled:opacity-50"
+        type="button"
+        @click="openFilePicker"
+      >
         <Paperclip :size="20" class="text-indigo-600" />
       </button>
 
@@ -149,8 +200,9 @@ onBeforeUnmount(() => {
       />
 
       <button
-        :disabled="props.disabled || !message.trim()"
+        :disabled="props.disabled || props.isUploadingAttachments || (!message.trim() && !props.attachments.length)"
         class="inline-flex h-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-r from-indigo-600 to-purple-600 px-4 text-sm font-medium text-white shadow-md transition-colors hover:from-indigo-700 hover:to-purple-700 disabled:pointer-events-none disabled:opacity-50"
+        type="button"
         @click="handleSend"
       >
         <Send :size="20" />

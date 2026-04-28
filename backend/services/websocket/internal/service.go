@@ -7,9 +7,12 @@ import (
 	"time"
 )
 
+const maxAttachmentsPerMessage = 10
+
 type Service struct {
-	repo       Repository
-	streamName string
+	repo        Repository
+	streamName  string
+	mediaClient MessagePreparer
 }
 
 type Repository interface {
@@ -18,8 +21,16 @@ type Repository interface {
 	Subscribe(channelName string, handler func(payload string))
 }
 
-func NewService(repo Repository, streamName string) *Service {
-	return &Service{repo: repo, streamName: streamName}
+type MessagePreparer interface {
+	PrepareMessage(senderID, receiverID string, attachmentIDs []string) ([]AttachmentSnapshot, error)
+}
+
+func NewService(repo Repository, streamName string, mediaClients ...MessagePreparer) *Service {
+	service := &Service{repo: repo, streamName: streamName}
+	if len(mediaClients) > 0 {
+		service.mediaClient = mediaClients[0]
+	}
+	return service
 }
 
 func (s *Service) SubscribeChatChannel(channelName string, handler func(string)) {
@@ -102,15 +113,39 @@ func (s *Service) PersistMessage(authenticatedUserID string, msg ChatMessagePayl
 	if strings.TrimSpace(msg.ReceiverID) == "" {
 		return ValidationError{Message: "receiver_id is required"}
 	}
-	if strings.TrimSpace(msg.Content) == "" {
-		return ValidationError{Message: "content is required"}
+
+	attachmentIDs, err := normalizeAttachmentIDs(msg.AttachmentIDs)
+	if err != nil {
+		return err
+	}
+	if strings.TrimSpace(msg.Content) == "" && len(attachmentIDs) == 0 {
+		return ValidationError{Message: "content or attachment_ids is required"}
 	}
 
 	msg.SenderID = authenticatedUserID
 	msg.ReceiverID = strings.TrimSpace(msg.ReceiverID)
 	msg.Content = strings.TrimSpace(msg.Content)
 
-	payload, _ := json.Marshal(msg)
+	var attachments []AttachmentSnapshot
+	if len(attachmentIDs) > 0 {
+		if s.mediaClient == nil {
+			return ValidationError{Message: "media service is not configured"}
+		}
+		attachments, err = s.mediaClient.PrepareMessage(msg.SenderID, msg.ReceiverID, attachmentIDs)
+		if err != nil {
+			return err
+		}
+	}
+
+	payload, err := json.Marshal(ChatStreamPayload{
+		SenderID:    msg.SenderID,
+		ReceiverID:  msg.ReceiverID,
+		Content:     msg.Content,
+		Attachments: attachments,
+	})
+	if err != nil {
+		return err
+	}
 
 	log.Println("Sending to stream", payload)
 	if err := s.repo.AddToStream(s.streamName, string(payload)); err != nil {
@@ -119,6 +154,27 @@ func (s *Service) PersistMessage(authenticatedUserID string, msg ChatMessagePayl
 	}
 
 	return nil
+}
+
+func normalizeAttachmentIDs(ids []string) ([]string, error) {
+	if len(ids) > maxAttachmentsPerMessage {
+		return nil, ValidationError{Message: "too many attachments"}
+	}
+
+	seen := map[string]bool{}
+	clean := make([]string, 0, len(ids))
+	for _, id := range ids {
+		id = strings.TrimSpace(id)
+		if id == "" {
+			return nil, ValidationError{Message: "attachment_id is required"}
+		}
+		if seen[id] {
+			return nil, ValidationError{Message: "duplicate attachment_id"}
+		}
+		seen[id] = true
+		clean = append(clean, id)
+	}
+	return clean, nil
 }
 
 func viewedStatusForEvent(eventType string) string {

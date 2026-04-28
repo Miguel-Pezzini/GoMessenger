@@ -20,6 +20,8 @@ type Config struct {
 	RedisChannelChatEvents   string
 	RedisStreamNotifications string
 	RedisStreamAudit         string
+	MediaInternalURL         string
+	InternalServiceToken     string
 }
 
 func LoadConfig() Config {
@@ -33,6 +35,8 @@ func LoadConfig() Config {
 		RedisChannelChatEvents:   config.MustString("REDIS_CHANNEL_CHAT_EVENTS"),
 		RedisStreamNotifications: config.MustString("REDIS_STREAM_NOTIFICATION_MESSAGES"),
 		RedisStreamAudit:         config.MustString("REDIS_STREAM_AUDIT_LOGS"),
+		MediaInternalURL:         config.MustString("MEDIA_INTERNAL_URL"),
+		InternalServiceToken:     config.String("INTERNAL_SERVICE_TOKEN", "dev-internal-token"),
 	}
 }
 
@@ -69,7 +73,17 @@ func Run() error {
 
 	// Stream consumer — runs in the foreground; any error is fatal
 	go func() {
-		server := NewServer(cfg.Address, cfg.RedisStreamChat, cfg.RedisChannelChat, cfg.RedisChannelChatEvents, cfg.RedisStreamNotifications, rdb, service, audit.NewRedisPublisher(rdb, cfg.RedisStreamAudit))
+		server := NewServer(
+			cfg.Address,
+			cfg.RedisStreamChat,
+			cfg.RedisChannelChat,
+			cfg.RedisChannelChatEvents,
+			cfg.RedisStreamNotifications,
+			rdb,
+			service,
+			audit.NewRedisPublisher(rdb, cfg.RedisStreamAudit),
+			NewMediaHTTPClient(cfg.MediaInternalURL, cfg.InternalServiceToken),
+		)
 		errCh <- server.Start()
 	}()
 

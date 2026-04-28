@@ -9,6 +9,7 @@ interface Props {
   contactId: string;
   hasMore: boolean;
   isLoadingMore: boolean;
+  attachmentToken: string;
   isPeerTyping?: boolean;
   typingLabel?: string;
 }
@@ -94,7 +95,7 @@ watch(
         Loading older messages
       </div>
 
-      <MessageBubble v-for="message in messages" :key="message.id" :message="message" />
+      <MessageBubble v-for="message in messages" :key="message.id" :message="message" :attachment-token="attachmentToken" />
 
       <div v-if="isPeerTyping" class="mb-4 flex justify-start">
         <div class="rounded-3xl rounded-bl-sm border border-white/80 bg-white/90 px-4 py-3 shadow-sm">

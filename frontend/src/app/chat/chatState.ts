@@ -1,5 +1,5 @@
 import { normalizeTimestampMs } from './format.ts';
-import type { ChatMessageResponse, ConversationMessage, ViewedStatus } from './types.ts';
+import type { ChatAttachment, ChatMessageResponse, ConversationMessage, ViewedStatus } from './types.ts';
 
 export interface ChatState {
   messagesById: Record<string, ConversationMessage>;
@@ -79,6 +79,14 @@ const getConversationId = (
   return senderId === currentUserId ? receiverId : senderId;
 };
 
+const attachmentIDsEqual = (left: ChatAttachment[], right: ChatAttachment[]) => {
+  if (left.length !== right.length) {
+    return false;
+  }
+
+  return left.every((attachment, index) => attachment.id === right[index]?.id);
+};
+
 const findOptimisticMatchId = (
   state: ChatState,
   currentUserId: string,
@@ -94,11 +102,15 @@ const findOptimisticMatchId = (
       return false;
     }
 
-    if (
-      candidate.senderId !== currentUserId ||
-      candidate.receiverId !== message.receiver_id ||
-      candidate.content !== message.content
-    ) {
+    if (candidate.senderId !== currentUserId || candidate.receiverId !== message.receiver_id) {
+      return false;
+    }
+
+    if (candidate.content !== message.content) {
+      return false;
+    }
+
+    if (!attachmentIDsEqual(candidate.attachments, message.attachments ?? [])) {
       return false;
     }
 
@@ -118,6 +130,7 @@ export const addOptimisticMessage = (
     senderId: string;
     receiverId: string;
     content: string;
+    attachments?: ChatAttachment[];
     timestamp?: number;
   }
 ) => {
@@ -126,6 +139,7 @@ export const addOptimisticMessage = (
     senderId: params.senderId,
     receiverId: params.receiverId,
     content: params.content,
+    attachments: params.attachments ?? [],
     timestamp: params.timestamp ?? Date.now(),
     viewedStatus: 'sent',
     isMine: true,
@@ -164,6 +178,7 @@ export const upsertPersistedMessage = (
     senderId: message.sender_id,
     receiverId: message.receiver_id,
     content: message.content,
+    attachments: message.attachments ?? [],
     timestamp,
     viewedStatus: chooseHigherStatus(
       existing?.viewedStatus ?? inheritedMessage?.viewedStatus ?? 'sent',

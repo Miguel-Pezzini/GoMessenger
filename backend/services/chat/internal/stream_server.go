@@ -28,10 +28,11 @@ type Server struct {
 	rdb                *redis.Client
 	service            *Service
 	publisher          audit.Publisher
+	mediaBinder        MediaBinder
 }
 
-func NewServer(addr, streamName, channelName, chatEventsChannel, notificationStream string, rdb *redis.Client, service *Service, publisher audit.Publisher) *Server {
-	return &Server{
+func NewServer(addr, streamName, channelName, chatEventsChannel, notificationStream string, rdb *redis.Client, service *Service, publisher audit.Publisher, mediaBinders ...MediaBinder) *Server {
+	server := &Server{
 		addr:               addr,
 		streamName:         streamName,
 		channelName:        channelName,
@@ -41,6 +42,10 @@ func NewServer(addr, streamName, channelName, chatEventsChannel, notificationStr
 		service:            service,
 		publisher:          publisher,
 	}
+	if len(mediaBinders) > 0 {
+		server.mediaBinder = mediaBinders[0]
+	}
+	return server
 }
 
 func (s *Server) Start() error {
@@ -171,6 +176,23 @@ func (s *Server) processMessage(ctx context.Context, msg redis.XMessage) error {
 		return nil
 	}
 
+	if err := s.bindMessageAttachments(ctx, messageResponse); err != nil {
+		log.Printf("failed to bind attachments for message %s: %v", msg.ID, err)
+		s.publishAudit(ctx, audit.Event{
+			EventType:    "chat.attachment_bind.failed",
+			Category:     audit.CategoryError,
+			Service:      "chat",
+			ActorUserID:  req.SenderID,
+			TargetUserID: req.ReceiverID,
+			EntityType:   "message",
+			EntityID:     messageResponse.Id,
+			Status:       audit.StatusFailure,
+			Message:      "chat message attachment binding failed",
+			Metadata:     map[string]any{"stream_id": msg.ID, "error": err.Error()},
+		})
+		return nil
+	}
+
 	res, err := json.Marshal(messageResponse)
 	if err != nil {
 		log.Printf("failed to marshal response for %s: %v", msg.ID, err)
@@ -213,6 +235,16 @@ func (s *Server) processMessage(ctx context.Context, msg redis.XMessage) error {
 	}
 
 	return s.ackMessage(ctx, msg.ID)
+}
+
+func (s *Server) bindMessageAttachments(ctx context.Context, message *MessageResponse) error {
+	if message == nil || len(message.Attachments) == 0 {
+		return nil
+	}
+	if s.mediaBinder == nil {
+		return errors.New("media binder is not configured")
+	}
+	return s.mediaBinder.BindMessage(ctx, message.Id, message.SenderID, message.ReceiverID, message.Attachments)
 }
 
 func (s *Server) subscribeChatEvents(ctx context.Context) error {
@@ -351,7 +383,7 @@ func (s *Server) publishNotificationIntent(ctx context.Context, message *Message
 		MessageID:  message.Id,
 		SenderID:   message.SenderID,
 		ReceiverID: message.ReceiverID,
-		Content:    message.Content,
+		Content:    notificationPreviewForMessage(message),
 		Timestamp:  message.Timestamp,
 		OccurredAt: time.Now().UTC().Format(time.RFC3339),
 	}
@@ -366,6 +398,30 @@ func (s *Server) publishNotificationIntent(ctx context.Context, message *Message
 		Values: map[string]any{"payload": string(payload)},
 	}).Result()
 	return err
+}
+
+func notificationPreviewForMessage(message *MessageResponse) string {
+	if message == nil {
+		return ""
+	}
+	if strings.TrimSpace(message.Content) != "" {
+		return message.Content
+	}
+	if len(message.Attachments) == 0 {
+		return ""
+	}
+	switch message.Attachments[0].Kind {
+	case "image":
+		return "Image"
+	case "video":
+		return "Video"
+	case "audio":
+		return "Audio"
+	case "document":
+		return "Document"
+	default:
+		return "File"
+	}
 }
 
 func viewedStatusForInteractionEvent(event InteractionEvent) string {

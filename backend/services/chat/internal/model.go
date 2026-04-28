@@ -7,30 +7,42 @@ const (
 )
 
 type MessageRequest struct {
-	StreamID   string `json:"-"`
-	SenderID   string `json:"sender_id"`
-	ReceiverID string `json:"receiver_id"`
-	Content    string `json:"content"`
-	Timestamp  int64  `json:"timestamp,omitempty"`
+	StreamID    string               `json:"-"`
+	SenderID    string               `json:"sender_id"`
+	ReceiverID  string               `json:"receiver_id"`
+	Content     string               `json:"content"`
+	Attachments []AttachmentSnapshot `json:"attachments,omitempty"`
+	Timestamp   int64                `json:"timestamp,omitempty"`
 }
 
 type MessageDB struct {
-	Id           string `json:"id" bson:"-"`
-	StreamID     string `json:"-" bson:"stream_id"`
-	SenderID     string `json:"sender_id" bson:"sender_id"`
-	ReceiverID   string `json:"receiver_id" bson:"receiver_id"`
-	Content      string `json:"content" bson:"content"`
-	Timestamp    int64  `json:"timestamp,omitempty" bson:"timestamp,omitempty"`
-	ViewedStatus string `json:"viewed_status,omitempty" bson:"viewed_status,omitempty"`
+	Id           string               `json:"id" bson:"-"`
+	StreamID     string               `json:"-" bson:"stream_id"`
+	SenderID     string               `json:"sender_id" bson:"sender_id"`
+	ReceiverID   string               `json:"receiver_id" bson:"receiver_id"`
+	Content      string               `json:"content" bson:"content"`
+	Attachments  []AttachmentSnapshot `json:"attachments" bson:"attachments,omitempty"`
+	Timestamp    int64                `json:"timestamp,omitempty" bson:"timestamp,omitempty"`
+	ViewedStatus string               `json:"viewed_status,omitempty" bson:"viewed_status,omitempty"`
 }
 
 type MessageResponse struct {
-	Id           string `json:"id"`
-	SenderID     string `json:"sender_id"`
-	ReceiverID   string `json:"receiver_id"`
-	Content      string `json:"content"`
-	Timestamp    int64  `json:"timestamp,omitempty"`
-	ViewedStatus string `json:"viewed_status,omitempty"`
+	Id           string               `json:"id"`
+	SenderID     string               `json:"sender_id"`
+	ReceiverID   string               `json:"receiver_id"`
+	Content      string               `json:"content"`
+	Attachments  []AttachmentSnapshot `json:"attachments"`
+	Timestamp    int64                `json:"timestamp,omitempty"`
+	ViewedStatus string               `json:"viewed_status,omitempty"`
+}
+
+type AttachmentSnapshot struct {
+	ID          string `json:"id" bson:"id"`
+	Filename    string `json:"filename" bson:"filename"`
+	ContentType string `json:"content_type" bson:"content_type"`
+	Size        int64  `json:"size" bson:"size"`
+	Kind        string `json:"kind" bson:"kind"`
+	DownloadURL string `json:"download_url" bson:"download_url"`
 }
 
 type ConversationResponse struct {

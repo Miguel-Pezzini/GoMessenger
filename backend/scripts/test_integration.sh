@@ -22,6 +22,7 @@ WS_PID=""
 GATEWAY_PID=""
 LOGGING_PID=""
 NOTIFICATION_PID=""
+MEDIA_PID=""
 export GOCACHE="${GOCACHE:-/tmp/go-build-cache}"
 export GOTMPDIR="${GOTMPDIR:-/tmp/go-tmp}"
 
@@ -35,13 +36,13 @@ mkdir -p "$GOCACHE" "$GOTMPDIR"
 cleanup() {
   echo ""
   echo "==> Stopping services..."
-  for pid in "$AUTH_PID" "$FRIENDS_PID" "$CHAT_PID" "$PRESENCE_PID" "$WS_PID" "$GATEWAY_PID" "$LOGGING_PID" "$NOTIFICATION_PID"; do
+  for pid in "$AUTH_PID" "$FRIENDS_PID" "$CHAT_PID" "$PRESENCE_PID" "$WS_PID" "$GATEWAY_PID" "$LOGGING_PID" "$NOTIFICATION_PID" "$MEDIA_PID"; do
     if [ -n "$pid" ]; then
       kill "$pid" 2>/dev/null || true
     fi
   done
 
-  for pid in "$AUTH_PID" "$FRIENDS_PID" "$CHAT_PID" "$PRESENCE_PID" "$WS_PID" "$GATEWAY_PID" "$LOGGING_PID" "$NOTIFICATION_PID"; do
+  for pid in "$AUTH_PID" "$FRIENDS_PID" "$CHAT_PID" "$PRESENCE_PID" "$WS_PID" "$GATEWAY_PID" "$LOGGING_PID" "$NOTIFICATION_PID" "$MEDIA_PID"; do
     if [ -n "$pid" ]; then
       wait "$pid" 2>/dev/null || true
     fi
@@ -94,6 +95,8 @@ wait_for_container "mongo_user_test" "running"
 wait_for_container "mongo_chat_test" "running"
 wait_for_container "redis_test" "running"
 wait_for_container "mongo_friends_test" "running"
+wait_for_container "mongo_media_test" "running"
+wait_for_container "minio_test" "running"
 
 # --- Load test environment ---
 # Export vars so child processes (services) inherit them.
@@ -108,6 +111,7 @@ echo "==> Starting services with test environment..."
 
 go run ./services/auth/cmd     &> /tmp/auth.log     & AUTH_PID=$!
 go run ./services/friends/cmd  &> /tmp/friends.log  & FRIENDS_PID=$!
+go run ./services/media/cmd    &> /tmp/media.log    & MEDIA_PID=$!
 go run ./services/chat/cmd     &> /tmp/chat.log     & CHAT_PID=$!
 go run ./services/presence_service/cmd &> /tmp/presence.log & PRESENCE_PID=$!
 go run ./services/websocket/cmd &> /tmp/ws.log      & WS_PID=$!
