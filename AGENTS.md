@@ -27,7 +27,7 @@ GoMessenger/
 
 ## Local development (typical)
 
-1. **Infrastructure** — From `backend/`, start Redis and MongoDB (see [backend/AGENTS.md](backend/AGENTS.md) — `docker-compose up -d`).
+1. **Infrastructure** — From `backend/`, start Redis and MongoDB (see [backend/AGENTS.md](backend/AGENTS.md) — `docker compose up -d`).
 
 2. **Backend** — From `backend/`, run all services in one process:
 

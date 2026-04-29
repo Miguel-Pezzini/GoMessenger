@@ -57,9 +57,15 @@ func TestPersistMessageUsesAuthenticatedUserAsSender(t *testing.T) {
 		t.Fatalf("expected no error, got %v", err)
 	}
 
-	expected := `{"sender_id":"user-auth","receiver_id":"user-b","content":"hello"}`
-	if repo.payload != expected {
-		t.Fatalf("expected payload %s, got %s", expected, repo.payload)
+	var payload ChatStreamPayload
+	if err := json.Unmarshal([]byte(repo.payload), &payload); err != nil {
+		t.Fatalf("failed to decode stream payload: %v", err)
+	}
+	if payload.SenderID != "user-auth" || payload.ReceiverID != "user-b" || payload.Content != "hello" {
+		t.Fatalf("unexpected stream payload: %+v", payload)
+	}
+	if payload.Timestamp == 0 {
+		t.Fatal("expected stream payload timestamp to be populated")
 	}
 	if repo.streamName != "chat-stream" {
 		t.Fatalf("expected stream chat-stream, got %s", repo.streamName)

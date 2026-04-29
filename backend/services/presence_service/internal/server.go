@@ -7,7 +7,9 @@ import (
 	"net/http"
 
 	"github.com/Miguel-Pezzini/GoMessenger/internal/platform/config"
+	"github.com/Miguel-Pezzini/GoMessenger/internal/platform/observability"
 	redisutil "github.com/Miguel-Pezzini/GoMessenger/internal/platform/redis"
+	"github.com/redis/go-redis/v9"
 )
 
 type Config struct {
@@ -26,6 +28,8 @@ type Server struct {
 	service                *Service
 	repo                   Repository
 	handler                *Handler
+	rdb                    *redis.Client
+	authUpstreamURL        string
 }
 
 func LoadConfig() Config {
@@ -56,6 +60,8 @@ func NewServer(cfg Config) (*Server, error) {
 		service:                service,
 		repo:                   repo,
 		handler:                NewHandler(service),
+		rdb:                    rdb,
+		authUpstreamURL:        cfg.AuthUpstreamURL,
 	}, nil
 }
 
@@ -76,5 +82,12 @@ func (s *Server) Start() error {
 	mux := http.NewServeMux()
 	mux.Handle("GET /presence/{userID}", http.HandlerFunc(s.handler.HandleGetPresence))
 	mux.Handle("GET /admin/presence/active", http.HandlerFunc(s.handler.HandleListActiveUsers))
-	return http.ListenAndServe(s.addr, mux)
+
+	observer := observability.New("presence")
+	observer.Mount(
+		mux,
+		observability.RedisPingCheck("redis", s.rdb),
+		observability.HTTPHealthCheck("auth", s.authUpstreamURL),
+	)
+	return http.ListenAndServe(s.addr, observer.Handler(mux))
 }

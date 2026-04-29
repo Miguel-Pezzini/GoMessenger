@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/Miguel-Pezzini/GoMessenger/internal/platform/config"
+	"github.com/Miguel-Pezzini/GoMessenger/internal/platform/observability"
 	redisutil "github.com/Miguel-Pezzini/GoMessenger/internal/platform/redis"
 )
 
@@ -53,6 +54,10 @@ func Run() error {
 		}
 	}()
 
+	mux := http.NewServeMux()
+	observer := observability.New("notification")
+	observer.Mount(mux, observability.RedisPingCheck("redis", rdb))
+
 	log.Printf("notification service listening on %s", cfg.Address)
-	return http.ListenAndServe(cfg.Address, http.NewServeMux())
+	return http.ListenAndServe(cfg.Address, observer.Handler(mux))
 }

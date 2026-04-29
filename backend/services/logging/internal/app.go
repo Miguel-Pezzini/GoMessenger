@@ -7,6 +7,7 @@ import (
 
 	"github.com/Miguel-Pezzini/GoMessenger/internal/platform/config"
 	mongoutil "github.com/Miguel-Pezzini/GoMessenger/internal/platform/mongo"
+	"github.com/Miguel-Pezzini/GoMessenger/internal/platform/observability"
 	redisutil "github.com/Miguel-Pezzini/GoMessenger/internal/platform/redis"
 	"github.com/Miguel-Pezzini/GoMessenger/internal/platform/security"
 )
@@ -59,7 +60,14 @@ func Run() error {
 	mux.Handle("GET /admin/logs", http.HandlerFunc(handler.ListLogs))
 	mux.Handle("GET /admin/logs/ws", http.HandlerFunc(handler.StreamLogs))
 
-	return http.ListenAndServe(cfg.Address, mux)
+	observer := observability.New("logging")
+	observer.Mount(
+		mux,
+		observability.MongoPingCheck("mongo", db),
+		observability.RedisPingCheck("redis", rdb),
+	)
+
+	return http.ListenAndServe(cfg.Address, observer.Handler(mux))
 }
 
 func parseAllowedOrigins(raw string) []string {

@@ -6,8 +6,10 @@ import (
 
 	"github.com/Miguel-Pezzini/GoMessenger/internal/platform/audit"
 	"github.com/Miguel-Pezzini/GoMessenger/internal/platform/config"
+	"github.com/Miguel-Pezzini/GoMessenger/internal/platform/observability"
 	redisutil "github.com/Miguel-Pezzini/GoMessenger/internal/platform/redis"
 	"github.com/Miguel-Pezzini/GoMessenger/internal/platform/security"
+	"github.com/redis/go-redis/v9"
 )
 
 type Server struct {
@@ -18,6 +20,9 @@ type Server struct {
 	chatEventsChannel     string
 	notificationsChannel  string
 	handler               *Handler
+	observer              *observability.Observer
+	rdb                   *redis.Client
+	mediaInternalURL      string
 }
 
 type Config struct {
@@ -60,8 +65,11 @@ func Run() error {
 		return err
 	}
 
+	observer := observability.New("websocket")
 	service := NewService(NewRedisRepository(redisClient), cfg.StreamName, NewMediaHTTPClient(cfg.MediaInternalURL, cfg.InternalServiceToken))
-	server := NewServer(cfg.Address, cfg.ChannelName, cfg.FriendEventsChannel, cfg.PresenceEventsChannel, cfg.ChatEventsChannel, cfg.NotificationsChannel, NewHandler(service, audit.NewRedisPublisher(redisClient, cfg.AuditStream), security.NewOriginValidator(cfg.AllowedOrigins)))
+	server := NewServer(cfg.Address, cfg.ChannelName, cfg.FriendEventsChannel, cfg.PresenceEventsChannel, cfg.ChatEventsChannel, cfg.NotificationsChannel, NewHandler(service, audit.NewRedisPublisher(redisClient, cfg.AuditStream), security.NewOriginValidator(cfg.AllowedOrigins), observer))
+	server.SetObserver(observer)
+	server.SetReadinessDependencies(redisClient, cfg.MediaInternalURL)
 	return server.Start()
 }
 
@@ -77,6 +85,15 @@ func NewServer(addr, channelName, friendEventsChannel, presenceEventsChannel, ch
 	}
 }
 
+func (s *Server) SetObserver(observer *observability.Observer) {
+	s.observer = observer
+}
+
+func (s *Server) SetReadinessDependencies(rdb *redis.Client, mediaInternalURL string) {
+	s.rdb = rdb
+	s.mediaInternalURL = mediaInternalURL
+}
+
 func (s *Server) Start() error {
 	mux := http.NewServeMux()
 	s.handler.SetPresenceChannel(s.presenceEventsChannel)
@@ -86,7 +103,19 @@ func (s *Server) Start() error {
 	s.handler.StartChatEventListener(s.chatEventsChannel)
 	s.handler.StartNotificationListener(s.notificationsChannel)
 	mux.Handle("GET /ws", http.HandlerFunc(s.handler.HandleConnection))
-	return http.ListenAndServe(s.addr, mux)
+
+	if s.observer == nil {
+		s.observer = observability.New("websocket")
+	}
+	checks := []observability.ReadinessCheck{}
+	if s.rdb != nil {
+		checks = append(checks, observability.RedisPingCheck("redis", s.rdb))
+	}
+	if s.mediaInternalURL != "" {
+		checks = append(checks, observability.HTTPHealthCheck("media", s.mediaInternalURL))
+	}
+	s.observer.Mount(mux, checks...)
+	return http.ListenAndServe(s.addr, s.observer.Handler(mux))
 }
 
 func parseAllowedOrigins(raw string) []string {

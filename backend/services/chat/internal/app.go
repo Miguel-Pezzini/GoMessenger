@@ -7,6 +7,7 @@ import (
 	"github.com/Miguel-Pezzini/GoMessenger/internal/platform/audit"
 	"github.com/Miguel-Pezzini/GoMessenger/internal/platform/config"
 	mongoutil "github.com/Miguel-Pezzini/GoMessenger/internal/platform/mongo"
+	"github.com/Miguel-Pezzini/GoMessenger/internal/platform/observability"
 	redisutil "github.com/Miguel-Pezzini/GoMessenger/internal/platform/redis"
 )
 
@@ -64,11 +65,19 @@ func Run() error {
 	handler := NewHandler(service)
 	mux.HandleFunc("GET /messages/{userId}", handler.GetConversation)
 
+	observer := observability.New("chat")
+	observer.Mount(
+		mux,
+		observability.MongoPingCheck("mongo", db),
+		observability.RedisPingCheck("redis", rdb),
+		observability.HTTPHealthCheck("media", cfg.MediaInternalURL),
+	)
+
 	errCh := make(chan error, 1)
 
 	go func() {
 		log.Printf("chat HTTP listening on %s", cfg.Address)
-		errCh <- http.ListenAndServe(cfg.Address, mux)
+		errCh <- http.ListenAndServe(cfg.Address, observer.Handler(mux))
 	}()
 
 	// Stream consumer — runs in the foreground; any error is fatal
@@ -84,6 +93,7 @@ func Run() error {
 			audit.NewRedisPublisher(rdb, cfg.RedisStreamAudit),
 			NewMediaHTTPClient(cfg.MediaInternalURL, cfg.InternalServiceToken),
 		)
+		server.SetObserver(observer)
 		errCh <- server.Start()
 	}()
 

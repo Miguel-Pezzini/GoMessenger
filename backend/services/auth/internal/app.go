@@ -8,6 +8,7 @@ import (
 	"github.com/Miguel-Pezzini/GoMessenger/internal/platform/audit"
 	"github.com/Miguel-Pezzini/GoMessenger/internal/platform/config"
 	mongoutil "github.com/Miguel-Pezzini/GoMessenger/internal/platform/mongo"
+	"github.com/Miguel-Pezzini/GoMessenger/internal/platform/observability"
 	redisutil "github.com/Miguel-Pezzini/GoMessenger/internal/platform/redis"
 )
 
@@ -78,7 +79,14 @@ func Run() error {
 	mux.HandleFunc("GET /internal/users/by-friend-code/{code}", handler.LookupUserByFriendCode)
 	mux.HandleFunc("GET /internal/users/username/{userId}", handler.LookupUsernameByUserID)
 
+	observer := observability.New("auth")
+	observer.Mount(
+		mux,
+		observability.MongoPingCheck("mongo", db),
+		observability.RedisPingCheck("redis", rdb),
+	)
+
 	log.Printf("auth service listening on %s", cfg.Address)
 	defer rdb.Close()
-	return http.ListenAndServe(cfg.Address, mux)
+	return http.ListenAndServe(cfg.Address, observer.Handler(mux))
 }

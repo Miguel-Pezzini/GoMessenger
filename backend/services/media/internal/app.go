@@ -8,6 +8,7 @@ import (
 
 	"github.com/Miguel-Pezzini/GoMessenger/internal/platform/config"
 	mongoutil "github.com/Miguel-Pezzini/GoMessenger/internal/platform/mongo"
+	"github.com/Miguel-Pezzini/GoMessenger/internal/platform/observability"
 )
 
 type Config struct {
@@ -74,10 +75,17 @@ func Run() error {
 	mux.HandleFunc("POST /internal/attachments/bind-message", handler.BindMessage)
 	mux.HandleFunc("POST /internal/attachments/cleanup-expired", handler.CleanupExpired)
 
+	observer := observability.New("media")
+	observer.Mount(
+		mux,
+		observability.MongoPingCheck("mongo", db),
+		observability.FunctionCheck("storage", storage.EnsureBucket),
+	)
+
 	go startCleanupLoop(service, cfg.CleanupInterval)
 
 	log.Printf("media service listening on %s", cfg.Address)
-	return http.ListenAndServe(cfg.Address, mux)
+	return http.ListenAndServe(cfg.Address, observer.Handler(mux))
 }
 
 func ensureStorageReady(ctx context.Context, storage Storage) error {

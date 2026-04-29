@@ -142,6 +142,7 @@ func (s *Service) PersistMessage(authenticatedUserID string, msg ChatMessagePayl
 		ReceiverID:  msg.ReceiverID,
 		Content:     msg.Content,
 		Attachments: attachments,
+		Timestamp:   time.Now().UnixMilli(),
 	})
 	if err != nil {
 		return err

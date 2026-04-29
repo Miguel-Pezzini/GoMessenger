@@ -221,10 +221,10 @@ Additional realtime message types supported by the WebSocket service:
 
 ## Local Dependencies
 
-Start Redis and the databases:
+Start Redis, the databases, and local object storage:
 
 ```bash
-docker-compose up -d
+docker compose up -d
 ```
 
 Expected containers:
@@ -234,6 +234,20 @@ Expected containers:
 - `mongo_user` at `localhost:27019`
 - `mongo_friends` at `localhost:27020`
 - `mongo_logging` at `localhost:27021`
+- `mongo_media` at `localhost:27022`
+- `minio` at `localhost:9000`
+
+Prometheus and Grafana are optional:
+
+```bash
+docker compose --profile observability up -d
+```
+
+Host machine metrics through `node-exporter` require a root filesystem bind mount. Enable that only on Docker hosts that support it:
+
+```bash
+docker compose --profile observability --profile host-metrics up -d
+```
 
 ## Environment Variables
 

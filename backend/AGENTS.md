@@ -75,7 +75,7 @@ When adding a new capability:
 ## Infrastructure
 
 ```bash
-docker-compose up -d
+docker compose up -d
 ```
 
 | Container     | Port            | Used by               |
@@ -87,6 +87,18 @@ docker-compose up -d
 | mongo_logging | localhost:27021 | logging service       |
 | mongo_media   | localhost:27022 | media service         |
 | minio         | localhost:9000  | attachment objects    |
+
+Optional observability services are behind Compose profiles:
+
+```bash
+# Prometheus + Grafana
+docker compose --profile observability up -d
+
+# Prometheus + Grafana + node-exporter host metrics
+docker compose --profile observability --profile host-metrics up -d
+```
+
+`node-exporter` bind-mounts the host root filesystem for machine metrics, which can fail on Docker setups where `/` is not a shared or slave mount. Use the default infrastructure command or the `observability` profile without `host-metrics` when host metrics are not needed.
 
 ---
 

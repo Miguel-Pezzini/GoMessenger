@@ -6,12 +6,16 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/Miguel-Pezzini/GoMessenger/internal/platform/audit"
+	"github.com/Miguel-Pezzini/GoMessenger/internal/platform/observability"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -272,6 +276,17 @@ func newRedisClient(addr string) *redis.Client {
 	})
 }
 
+func gatherChatMetrics(t *testing.T, observer *observability.Observer) string {
+	t.Helper()
+	rec := httptest.NewRecorder()
+	promhttp.HandlerFor(observer.Registry(), promhttp.HandlerOpts{}).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/metrics", nil))
+	body, err := io.ReadAll(rec.Result().Body)
+	if err != nil {
+		t.Fatalf("read metrics body: %v", err)
+	}
+	return string(body)
+}
+
 func TestProcessMessageAcknowledgesInvalidPayload(t *testing.T) {
 	fakeRedis := newFakeRedisServer(t, "")
 	defer fakeRedis.close()
@@ -286,6 +301,8 @@ func TestProcessMessageAcknowledgesInvalidPayload(t *testing.T) {
 		NewService(&streamRepositoryStub{}),
 		&auditPublisherStub{},
 	)
+	observer := observability.New("chat")
+	server.SetObserver(observer)
 	defer server.rdb.Close()
 
 	err := server.processMessage(context.Background(), redis.XMessage{
@@ -300,6 +317,14 @@ func TestProcessMessageAcknowledgesInvalidPayload(t *testing.T) {
 	}
 	if fakeRedis.publishCount != 0 {
 		t.Fatalf("expected invalid message not to be published, got %d publishes", fakeRedis.publishCount)
+	}
+
+	metrics := gatherChatMetrics(t, observer)
+	if !strings.Contains(metrics, `gomessenger_chat_stream_messages_total{result="decode_error",service="chat"} 1`) {
+		t.Fatalf("expected decode error stream metric, got:\n%s", metrics)
+	}
+	if !strings.Contains(metrics, `gomessenger_chat_stream_acks_total{result="success",service="chat"} 1`) {
+		t.Fatalf("expected successful ack metric, got:\n%s", metrics)
 	}
 }
 

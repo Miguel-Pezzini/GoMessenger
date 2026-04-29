@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -13,8 +14,10 @@ import (
 	"time"
 
 	"github.com/Miguel-Pezzini/GoMessenger/internal/platform/audit"
+	"github.com/Miguel-Pezzini/GoMessenger/internal/platform/observability"
 	"github.com/Miguel-Pezzini/GoMessenger/internal/platform/security"
 	"github.com/gorilla/websocket"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 type handlerRepositoryStub struct {
@@ -141,7 +144,8 @@ func TestHandleConnectionRejectsDisallowedOrigin(t *testing.T) {
 }
 
 func TestHandleConnectionReturnsErrorForMalformedMessage(t *testing.T) {
-	handler := NewHandler(NewService(&handlerRepositoryStub{}, "chat-stream"), &auditPublisherStub{}, security.NewOriginValidator(nil))
+	observer := observability.New("websocket")
+	handler := NewHandler(NewService(&handlerRepositoryStub{}, "chat-stream"), &auditPublisherStub{}, security.NewOriginValidator(nil), observer)
 	server := newWebsocketTestServer(handler)
 	defer server.Close()
 
@@ -159,6 +163,11 @@ func TestHandleConnectionReturnsErrorForMalformedMessage(t *testing.T) {
 	}
 	if got.Error.Message != "invalid message payload" {
 		t.Fatalf("unexpected validation error: %s", got.Error.Message)
+	}
+
+	metrics := gatherWebsocketMetrics(t, observer)
+	if !strings.Contains(metrics, `gomessenger_websocket_inbound_messages_total{message_type="decode_error",result="failure",service="websocket"} 1`) {
+		t.Fatalf("expected malformed payload metric, got:\n%s", metrics)
 	}
 }
 
@@ -734,6 +743,17 @@ func waitForSubscriber(t *testing.T, repo *handlerRepositoryStub, channel string
 		defer repo.mu.Unlock()
 		return repo.subscribers[channel] != nil
 	})
+}
+
+func gatherWebsocketMetrics(t *testing.T, observer *observability.Observer) string {
+	t.Helper()
+	rec := httptest.NewRecorder()
+	promhttp.HandlerFor(observer.Registry(), promhttp.HandlerOpts{}).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/metrics", nil))
+	body, err := io.ReadAll(rec.Result().Body)
+	if err != nil {
+		t.Fatalf("read metrics body: %v", err)
+	}
+	return string(body)
 }
 
 func waitForPublishCalls(t *testing.T, repo *handlerRepositoryStub, expected int) {

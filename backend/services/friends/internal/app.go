@@ -7,6 +7,7 @@ import (
 	"github.com/Miguel-Pezzini/GoMessenger/internal/platform/audit"
 	"github.com/Miguel-Pezzini/GoMessenger/internal/platform/config"
 	mongoutil "github.com/Miguel-Pezzini/GoMessenger/internal/platform/mongo"
+	"github.com/Miguel-Pezzini/GoMessenger/internal/platform/observability"
 	redisutil "github.com/Miguel-Pezzini/GoMessenger/internal/platform/redis"
 )
 
@@ -72,7 +73,15 @@ func Run() error {
 	mux.HandleFunc("GET /friends", handler.ListFriends)
 	mux.HandleFunc("DELETE /friends/{friendId}", handler.RemoveFriend)
 
+	observer := observability.New("friends")
+	observer.Mount(
+		mux,
+		observability.MongoPingCheck("mongo", db),
+		observability.RedisPingCheck("redis", rdb),
+		observability.HTTPHealthCheck("auth", cfg.AuthUpstreamURL),
+	)
+
 	log.Printf("friends service listening on %s", cfg.Address)
 	defer rdb.Close()
-	return http.ListenAndServe(cfg.Address, mux)
+	return http.ListenAndServe(cfg.Address, observer.Handler(mux))
 }

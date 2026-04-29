@@ -37,6 +37,7 @@ type ChatStreamPayload struct {
 	ReceiverID  string               `json:"receiver_id"`
 	Content     string               `json:"content"`
 	Attachments []AttachmentSnapshot `json:"attachments,omitempty"`
+	Timestamp   int64                `json:"timestamp,omitempty"`
 }
 
 type AttachmentSnapshot struct {

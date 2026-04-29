@@ -1,11 +1,12 @@
 package gateway
 
 import (
+	"log"
 	"net/http"
 	"strings"
 
 	"github.com/Miguel-Pezzini/GoMessenger/internal/platform/config"
-	"log"
+	"github.com/Miguel-Pezzini/GoMessenger/internal/platform/observability"
 )
 
 type Config struct {
@@ -113,7 +114,19 @@ func NewRouter(cfg Config) (http.Handler, error) {
 	mux.Handle("GET /friends", jwtMiddleware.Wrap(friendsUpstream))
 	mux.Handle("DELETE /friends/{friendId}", jwtMiddleware.Wrap(friendsUpstream))
 
-	return withCORS(cfg.AllowedOrigin, mux), nil
+	observer := observability.New("gateway")
+	observer.Mount(
+		mux,
+		observability.HTTPHealthCheck("auth", cfg.AuthURL),
+		observability.HTTPHealthCheck("friends", cfg.FriendsURL),
+		observability.HTTPHealthCheck("websocket", cfg.WebsocketURL),
+		observability.HTTPHealthCheck("chat", cfg.ChatURL),
+		observability.HTTPHealthCheck("media", cfg.MediaURL),
+		observability.HTTPHealthCheck("presence", cfg.PresenceURL),
+		observability.HTTPHealthCheck("logging", cfg.LoggingURL),
+	)
+
+	return observer.Handler(withCORS(cfg.AllowedOrigin, mux)), nil
 }
 
 func parseSecretList(raw string) []string {

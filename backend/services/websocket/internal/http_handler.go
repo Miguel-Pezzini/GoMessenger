@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/Miguel-Pezzini/GoMessenger/internal/platform/audit"
+	"github.com/Miguel-Pezzini/GoMessenger/internal/platform/observability"
 	"github.com/Miguel-Pezzini/GoMessenger/internal/platform/security"
 	"github.com/gorilla/websocket"
 )
@@ -26,6 +27,7 @@ type Handler struct {
 	typingTimers      map[string]*time.Timer
 	typingTimersM     sync.Mutex
 	originValidator   security.OriginValidator
+	observer          *observability.Observer
 }
 
 type websocketWriter interface {
@@ -57,14 +59,18 @@ func (c *clientConn) Close() error {
 
 var typingIdleTimeout = 3 * time.Second
 
-func NewHandler(service *Service, auditPublisher audit.Publisher, originValidator security.OriginValidator) *Handler {
-	return &Handler{
+func NewHandler(service *Service, auditPublisher audit.Publisher, originValidator security.OriginValidator, observers ...*observability.Observer) *Handler {
+	handler := &Handler{
 		service:         service,
 		auditPublisher:  auditPublisher,
 		clients:         make(map[string]*clientConn),
 		typingTimers:    make(map[string]*time.Timer),
 		originValidator: originValidator,
 	}
+	if len(observers) > 0 {
+		handler.observer = observers[0]
+	}
+	return handler
 }
 
 func (h *Handler) SetPresenceChannel(channel string) {
@@ -78,6 +84,7 @@ func (h *Handler) SetChatEventsChannel(channel string) {
 func (h *Handler) HandleConnection(w http.ResponseWriter, r *http.Request) {
 	userID := r.Header.Get("X-User-ID")
 	if userID == "" {
+		h.observer.WebSocketConnectFailed()
 		writeHTTPJSONError(w, http.StatusUnauthorized, "missing user id")
 		return
 	}
@@ -90,10 +97,12 @@ func (h *Handler) HandleConnection(w http.ResponseWriter, r *http.Request) {
 
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
+		h.observer.WebSocketConnectFailed()
 		log.Println("Failed to upgrade websocket connection:", err)
 		return
 	}
 	client := &clientConn{conn: conn}
+	h.observer.WebSocketConnected()
 
 	conn.SetReadDeadline(time.Now().Add(60 * time.Second))
 	conn.SetPongHandler(func(appData string) error {
@@ -129,9 +138,11 @@ func (h *Handler) HandleConnection(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 
+		messageStart := time.Now()
 		var gatewayMessage GatewayMessage
 		if err := decodeStrictJSON(msgBytes, &gatewayMessage); err != nil {
 			log.Println("Failed to decode websocket message:", err)
+			h.observer.ObserveWebSocketMessage("decode_error", "failure", time.Since(messageStart))
 			if writeErr := h.writeValidationError(client, ValidationError{Message: "invalid message payload"}); writeErr != nil {
 				log.Println("Failed to write websocket validation error:", writeErr)
 			}
@@ -139,13 +150,17 @@ func (h *Handler) HandleConnection(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if err := h.handleGatewayMessage(r.Context(), userID, client, gatewayMessage); err != nil {
+			h.observer.ObserveWebSocketMessage(gatewayMessage.Type, "failure", time.Since(messageStart))
 			log.Println("Failed to handle websocket message:", err)
+			continue
 		}
+		h.observer.ObserveWebSocketMessage(gatewayMessage.Type, "success", time.Since(messageStart))
 	}
 
 	h.clientsM.Lock()
 	delete(h.clients, userID)
 	h.clientsM.Unlock()
+	h.observer.WebSocketDisconnected("closed")
 	h.publishAudit(context.Background(), audit.Event{
 		EventType:   "websocket.disconnected",
 		Category:    audit.CategoryAudit,
@@ -243,7 +258,7 @@ func (h *Handler) startPingLoop(conn *clientConn) {
 	defer ticker.Stop()
 
 	for range ticker.C {
-		if err := conn.WriteControl(websocket.PingMessage, []byte{}, time.Now().Add(5*time.Second)); err != nil {
+		if err := h.writeControl(conn, websocket.PingMessage, []byte{}, time.Now().Add(5*time.Second)); err != nil {
 			log.Println("Ping error, closing connection:", err)
 			_ = conn.Close()
 			return
@@ -396,7 +411,7 @@ func (h *Handler) writeValidationError(conn *clientConn, validationErr Validatio
 	if conn == nil {
 		return nil
 	}
-	if err := conn.WriteJSON(ErrorResponse{
+	if err := h.writeJSON(conn, ErrorResponse{
 		Type:  MessageTypeError,
 		Error: validationErr,
 	}); err != nil {
@@ -415,7 +430,7 @@ func (h *Handler) sendJSONToUsers(message any, userIDs ...string) {
 		return
 	}
 	if len(conns) == 1 {
-		_ = conns[0].WriteJSON(message)
+		_ = h.writeJSON(conns[0], message)
 		return
 	}
 
@@ -425,10 +440,24 @@ func (h *Handler) sendJSONToUsers(message any, userIDs ...string) {
 		conn := conn
 		go func() {
 			defer wg.Done()
-			_ = conn.WriteJSON(message)
+			_ = h.writeJSON(conn, message)
 		}()
 	}
 	wg.Wait()
+}
+
+func (h *Handler) writeJSON(conn *clientConn, message any) error {
+	start := time.Now()
+	err := conn.WriteJSON(message)
+	h.observer.ObserveWebSocketWrite(observeResult(err), time.Since(start))
+	return err
+}
+
+func (h *Handler) writeControl(conn *clientConn, messageType int, data []byte, deadline time.Time) error {
+	start := time.Now()
+	err := conn.WriteControl(messageType, data, deadline)
+	h.observer.ObserveWebSocketWrite(observeResult(err), time.Since(start))
+	return err
 }
 
 func (h *Handler) snapshotClients(userIDs ...string) []*clientConn {
@@ -562,6 +591,13 @@ func (h *Handler) publishTypingStoppedForUser(userID string) {
 
 func typingTimerKey(userID, targetUserID string) string {
 	return userID + "\x00" + targetUserID
+}
+
+func observeResult(err error) string {
+	if err != nil {
+		return "failure"
+	}
+	return "success"
 }
 
 func decodeStrictRawJSON(rawPayload json.RawMessage, dst any) error {

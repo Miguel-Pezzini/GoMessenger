@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/Miguel-Pezzini/GoMessenger/internal/platform/audit"
+	"github.com/Miguel-Pezzini/GoMessenger/internal/platform/observability"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -29,6 +30,7 @@ type Server struct {
 	service            *Service
 	publisher          audit.Publisher
 	mediaBinder        MediaBinder
+	observer           *observability.Observer
 }
 
 func NewServer(addr, streamName, channelName, chatEventsChannel, notificationStream string, rdb *redis.Client, service *Service, publisher audit.Publisher, mediaBinders ...MediaBinder) *Server {
@@ -46,6 +48,10 @@ func NewServer(addr, streamName, channelName, chatEventsChannel, notificationStr
 		server.mediaBinder = mediaBinders[0]
 	}
 	return server
+}
+
+func (s *Server) SetObserver(observer *observability.Observer) {
+	s.observer = observer
 }
 
 func (s *Server) Start() error {
@@ -72,11 +78,19 @@ func (s *Server) Start() error {
 			log.Println("failed to process new stream messages:", err)
 			time.Sleep(time.Second)
 		}
+
+		s.observeStreamState(ctx)
 	}
 }
 
 func (s *Server) ensureConsumerGroup(ctx context.Context) error {
+	start := time.Now()
 	err := s.rdb.XGroupCreateMkStream(ctx, s.streamName, consumerGroupName, "0").Err()
+	result := resultLabel(err)
+	if err != nil && strings.Contains(err.Error(), "BUSYGROUP") {
+		result = "success"
+	}
+	s.observer.ObserveChatRedisOperation("xgroup_create", result, time.Since(start))
 	if err != nil && !strings.Contains(err.Error(), "BUSYGROUP") {
 		return err
 	}
@@ -84,6 +98,7 @@ func (s *Server) ensureConsumerGroup(ctx context.Context) error {
 }
 
 func (s *Server) processClaimedMessages(ctx context.Context) error {
+	start := time.Now()
 	messages, _, err := s.rdb.XAutoClaim(ctx, &redis.XAutoClaimArgs{
 		Stream:   s.streamName,
 		Group:    consumerGroupName,
@@ -92,6 +107,7 @@ func (s *Server) processClaimedMessages(ctx context.Context) error {
 		Start:    "0-0",
 		Count:    readBatchSize,
 	}).Result()
+	s.observer.ObserveChatRedisOperation("xautoclaim", resultLabel(err), time.Since(start))
 	if err != nil {
 		if errors.Is(err, redis.Nil) {
 			return nil
@@ -106,6 +122,7 @@ func (s *Server) processClaimedMessages(ctx context.Context) error {
 }
 
 func (s *Server) processNewMessages(ctx context.Context) error {
+	start := time.Now()
 	streams, err := s.rdb.XReadGroup(ctx, &redis.XReadGroupArgs{
 		Group:    consumerGroupName,
 		Consumer: s.consumerName(),
@@ -113,6 +130,7 @@ func (s *Server) processNewMessages(ctx context.Context) error {
 		Block:    readBlockTimeout,
 		Count:    readBatchSize,
 	}).Result()
+	s.observer.ObserveChatRedisOperation("xreadgroup", resultLabel(err), time.Since(start))
 	if err != nil {
 		if errors.Is(err, redis.Nil) {
 			return nil
@@ -139,8 +157,16 @@ func (s *Server) processMessages(ctx context.Context, messages []redis.XMessage)
 }
 
 func (s *Server) processMessage(ctx context.Context, msg redis.XMessage) error {
+	start := time.Now()
+	age := observability.StreamMessageAge(msg.ID, start)
+	result := "success"
+	defer func() {
+		s.observer.ObserveChatStreamMessage(result, age, time.Since(start))
+	}()
+
 	req, err := decodeMessage(msg)
 	if err != nil {
+		result = "decode_error"
 		log.Printf("failed to decode stream message %s: %v", msg.ID, err)
 		s.publishAudit(ctx, audit.Event{
 			EventType:  "chat.decode.failed",
@@ -159,8 +185,11 @@ func (s *Server) processMessage(ctx context.Context, msg redis.XMessage) error {
 
 	req.StreamID = msg.ID
 
+	mongoStart := time.Now()
 	messageResponse, err := s.service.Create(ctx, req)
+	s.observer.ObserveChatMongoOperation("create_message", resultLabel(err), time.Since(mongoStart))
 	if err != nil {
+		result = "persist_error"
 		log.Printf("failed to persist message %s: %v", msg.ID, err)
 		s.publishAudit(ctx, audit.Event{
 			EventType:    "chat.persist.failed",
@@ -177,6 +206,7 @@ func (s *Server) processMessage(ctx context.Context, msg redis.XMessage) error {
 	}
 
 	if err := s.bindMessageAttachments(ctx, messageResponse); err != nil {
+		result = "attachment_bind_error"
 		log.Printf("failed to bind attachments for message %s: %v", msg.ID, err)
 		s.publishAudit(ctx, audit.Event{
 			EventType:    "chat.attachment_bind.failed",
@@ -195,11 +225,15 @@ func (s *Server) processMessage(ctx context.Context, msg redis.XMessage) error {
 
 	res, err := json.Marshal(messageResponse)
 	if err != nil {
+		result = "marshal_error"
 		log.Printf("failed to marshal response for %s: %v", msg.ID, err)
 		return nil
 	}
 
+	publishStart := time.Now()
 	if err := s.rdb.Publish(ctx, s.channelName, res).Err(); err != nil {
+		result = "publish_error"
+		s.observer.ObserveChatRedisOperation("publish_persisted_message", "failure", time.Since(publishStart))
 		log.Printf("failed to publish message %s to gateway channel: %v", msg.ID, err)
 		s.publishAudit(ctx, audit.Event{
 			EventType:    "chat.publish.failed",
@@ -215,6 +249,7 @@ func (s *Server) processMessage(ctx context.Context, msg redis.XMessage) error {
 		})
 		return nil
 	}
+	s.observer.ObserveChatRedisOperation("publish_persisted_message", "success", time.Since(publishStart))
 
 	s.publishAudit(ctx, audit.Event{
 		EventType:    "chat.message.persisted",
@@ -230,6 +265,7 @@ func (s *Server) processMessage(ctx context.Context, msg redis.XMessage) error {
 	})
 
 	if err := s.publishNotificationIntent(ctx, messageResponse); err != nil {
+		result = "notification_error"
 		log.Printf("failed to publish notification intent for %s: %v", msg.ID, err)
 		return nil
 	}
@@ -289,7 +325,9 @@ func (s *Server) processInteractionEvent(ctx context.Context, event InteractionE
 		return nil
 	}
 
+	mongoStart := time.Now()
 	message, err := s.service.UpdateViewedStatus(ctx, event.MessageID, event.ActorUserID, status)
+	s.observer.ObserveChatMongoOperation("update_viewed_status", resultLabel(err), time.Since(mongoStart))
 	if err != nil {
 		s.publishAudit(ctx, audit.Event{
 			EventType:   "chat.viewed_status.update_failed",
@@ -330,7 +368,12 @@ func (s *Server) processInteractionEvent(ctx context.Context, event InteractionE
 }
 
 func (s *Server) ackMessage(ctx context.Context, messageID string) error {
-	return s.rdb.XAck(ctx, s.streamName, consumerGroupName, messageID).Err()
+	start := time.Now()
+	err := s.rdb.XAck(ctx, s.streamName, consumerGroupName, messageID).Err()
+	result := resultLabel(err)
+	s.observer.ObserveChatRedisOperation("xack", result, time.Since(start))
+	s.observer.ObserveChatStreamAck(result)
+	return err
 }
 
 func (s *Server) consumerName() string {
@@ -393,11 +436,43 @@ func (s *Server) publishNotificationIntent(ctx context.Context, message *Message
 		return err
 	}
 
+	start := time.Now()
 	_, err = s.rdb.XAdd(ctx, &redis.XAddArgs{
 		Stream: s.notificationStream,
 		Values: map[string]any{"payload": string(payload)},
 	}).Result()
+	s.observer.ObserveChatRedisOperation("xadd_notification", resultLabel(err), time.Since(start))
 	return err
+}
+
+func (s *Server) observeStreamState(ctx context.Context) {
+	if s.observer == nil {
+		return
+	}
+
+	start := time.Now()
+	groups, err := s.rdb.XInfoGroups(ctx, s.streamName).Result()
+	s.observer.ObserveChatRedisOperation("xinfo_groups", resultLabel(err), time.Since(start))
+	if err != nil {
+		return
+	}
+
+	for _, group := range groups {
+		if group.Name != consumerGroupName {
+			continue
+		}
+		if group.Lag >= 0 {
+			s.observer.SetChatStreamLag(s.streamName, group.Name, float64(group.Lag))
+		}
+		s.observer.SetChatStreamPending(s.streamName, group.Name, float64(group.Pending))
+	}
+}
+
+func resultLabel(err error) string {
+	if err != nil {
+		return "failure"
+	}
+	return "success"
 }
 
 func notificationPreviewForMessage(message *MessageResponse) string {
