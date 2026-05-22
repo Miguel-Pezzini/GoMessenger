@@ -2,6 +2,10 @@
 
 GoMessenger is a real-time chat platform built with Go microservices and a Vue 3 frontend.
 
+<p align="center">
+  <img src="backend/docs/architecture.png" alt="Arquitetura do backend GoMessenger" width="900"/>
+</p>
+
 ## Tech Stack
 
 - Backend: Go microservices
@@ -21,7 +25,7 @@ GoMessenger/
 
 ## Architecture Overview
 
-The system is service-oriented. The gateway exposes a unified HTTP and WebSocket-facing surface while routing to internal services:
+The system is service-oriented (see diagram above). The gateway exposes a unified HTTP and WebSocket-facing surface while routing to internal services:
 
 - `gateway` (`:8080`): public API and reverse proxy to internal services
 - `auth` (`:50051`): register/login and JWT issuance
@@ -31,6 +35,7 @@ The system is service-oriented. The gateway exposes a unified HTTP and WebSocket
 - `presence_service` (`:8083`): online presence state
 - `logging` (`:8084`): audit logs
 - `notification` (`:8085`): user notification pipeline
+- `media` (`:8086`): attachment metadata and object storage proxy
 
 High-level chat flow:
 
@@ -100,6 +105,7 @@ If you need to run layers separately:
 
 ## Additional Documentation
 
+- Backend architecture diagrams (Mermaid): [`backend/docs/architecture.md`](backend/docs/architecture.md)
 - Backend architecture and APIs: [`backend/README.md`](backend/README.md)
 - Backend contributor guide: [`backend/AGENTS.md`](backend/AGENTS.md)
 - Frontend guide: [`frontend/AGENTS.md`](frontend/AGENTS.md)

@@ -35,6 +35,68 @@ The flow implemented in the repository today is:
 
 ## Architecture
 
+![Arquitetura do backend](docs/architecture.png)
+
+*PNG gerado a partir de [`docs/architecture.mmd`](docs/architecture.mmd) — fonte versionável do diagrama.*
+
+```mermaid
+flowchart TB
+    client["Vue 3 Client"]
+
+    gateway["Gateway :8080<br/>JWT · HTTP reverse proxy · WebSocket proxy"]
+
+    client -->|"HTTP + WS"| gateway
+
+    subgraph svc["Go microservices"]
+        auth["auth :50051"]
+        friends["friends :50052"]
+        ws["websocket :8081"]
+        chat["chat :8082"]
+        presence["presence :8083"]
+        logging["logging :8084"]
+        notif["notification :8085"]
+        media["media :8086"]
+    end
+
+    gateway -->|"HTTP proxy"| auth
+    gateway -->|"HTTP proxy"| friends
+    gateway -->|"HTTP proxy"| chat
+    gateway -->|"HTTP proxy"| presence
+    gateway -->|"HTTP proxy"| logging
+    gateway -->|"HTTP proxy"| media
+    gateway -->|"WS proxy"| ws
+
+    redis[("Redis :6379<br/>Streams · Pub/Sub · presence KV")]
+
+    ws <-->|"stream + pub/sub"| redis
+    chat <-->|"stream + pub/sub"| redis
+    friends <-->|"pub/sub + streams"| redis
+    presence <-->|"pub/sub + KV"| redis
+    logging <-->|"stream"| redis
+    notif <-->|"stream + pub/sub"| redis
+
+    subgraph mongo["MongoDB — one Docker instance per service"]
+        mu[("mongo_user :27019<br/>userdb")]
+        mf[("mongo_friends :27020<br/>friends_db")]
+        mc[("mongo_chat :27018<br/>chatdb")]
+        ml[("mongo_logging :27021<br/>logging_db")]
+        mm[("mongo_media :27022<br/>media_db")]
+    end
+
+    minio[("MinIO :9000<br/>object storage")]
+
+    auth --> mu
+    friends --> mf
+    chat --> mc
+    logging --> ml
+    media --> mm
+    media --> minio
+```
+
+The **gateway** (`:8080`) is the only client-facing entry point. Services coordinate through **Redis**; each domain that persists data uses its own **MongoDB** container (`mongo_user`, `mongo_friends`, `mongo_chat`, `mongo_logging`, `mongo_media`). **Presence** and **notification** use Redis only. **MinIO** holds attachment bytes; **media** stores metadata in `mongo_media`.
+
+More diagrams (chat sequence, parallel flows): [`docs/architecture.md`](docs/architecture.md).
+
 GoMessenger uses a microservices architecture with a flat package layout inside each service. The repository no longer uses `domain/infra/transport` folders.
 
 Typical service layout:
