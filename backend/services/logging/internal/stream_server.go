@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/Miguel-Pezzini/GoMessenger/internal/platform/audit"
+	"github.com/Miguel-Pezzini/GoMessenger/internal/platform/config"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -57,7 +58,7 @@ func (s *Server) ensureConsumerGroup(ctx context.Context) error {
 func (s *Server) processMessages(ctx context.Context) error {
 	streams, err := s.rdb.XReadGroup(ctx, &redis.XReadGroupArgs{
 		Group:    consumerGroupName,
-		Consumer: "logging-consumer",
+		Consumer: s.consumerName(),
 		Streams:  []string{s.streamName, ">"},
 		Block:    readBlockTimeout,
 		Count:    readBatchSize,
@@ -100,6 +101,10 @@ func (s *Server) processMessage(ctx context.Context, msg redis.XMessage) error {
 
 func (s *Server) ackMessage(ctx context.Context, messageID string) error {
 	return s.rdb.XAck(ctx, s.streamName, consumerGroupName, messageID).Err()
+}
+
+func (s *Server) consumerName() string {
+	return config.ConsumerName("logging-consumer")
 }
 
 func decodeEvent(msg redis.XMessage) (audit.Event, error) {

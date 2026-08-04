@@ -103,6 +103,154 @@ services:
     volumes:
       - /:/host:ro
 
+  auth:
+    image: gomessenger/auth:local
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE: auth
+    env_file: .env.compose
+    profiles:
+      - apps
+    depends_on:
+      - redis
+      - mongo-user
+
+  friends:
+    image: gomessenger/friends:local
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE: friends
+    env_file: .env.compose
+    profiles:
+      - apps
+    depends_on:
+      - redis
+      - mongo-friends
+      - auth
+
+  websocket:
+    image: gomessenger/websocket:local
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE: websocket
+    env_file: .env.compose
+    profiles:
+      - apps
+    depends_on:
+      - redis
+      - media
+
+  chat:
+    image: gomessenger/chat:local
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE: chat
+    env_file: .env.compose
+    profiles:
+      - apps
+    depends_on:
+      - redis
+      - mongo-chat
+      - media
+
+  presence:
+    image: gomessenger/presence:local
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE: presence_service
+    env_file: .env.compose
+    profiles:
+      - apps
+    depends_on:
+      - redis
+
+  logging:
+    image: gomessenger/logging:local
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE: logging
+    env_file: .env.compose
+    profiles:
+      - apps
+    depends_on:
+      - redis
+      - mongo-logging
+
+  notification:
+    image: gomessenger/notification:local
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE: notification
+    env_file: .env.compose
+    profiles:
+      - apps
+    depends_on:
+      - redis
+
+  media:
+    image: gomessenger/media:local
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE: media
+    env_file: .env.compose
+    profiles:
+      - apps
+    depends_on:
+      - mongo-media
+      - minio
+
+  gateway:
+    image: gomessenger/gateway:local
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE: gateway
+    env_file: .env.compose
+    profiles:
+      - apps
+    ports:
+      - "8080:8080"
+    depends_on:
+      - auth
+      - friends
+      - websocket
+      - chat
+      - presence
+      - logging
+      - media
+
+  frontend:
+    image: gomessenger/frontend:local
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_GATEWAY_URL: http://localhost:8080
+        VITE_WS_URL: ws://localhost:8080/ws
+    profiles:
+      - apps
+    ports:
+      - "5173:80"
+    depends_on:
+      - gateway
+
 volumes:
   mongo_chat_data:
   mongo_user_data:
