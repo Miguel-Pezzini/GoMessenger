@@ -37,3 +37,30 @@ func TestMustStringPanicsWhenUnset(t *testing.T) {
 
 	_ = MustString("CONFIG_TEST_REQUIRED_MISSING")
 }
+
+func TestConsumerNameUsesFallbackWhenUnset(t *testing.T) {
+	t.Setenv("POD_NAME", "")
+	t.Setenv("HOSTNAME", "")
+
+	if got := ConsumerName("fallback-consumer"); got != "fallback-consumer" {
+		t.Fatalf("expected fallback, got %q", got)
+	}
+}
+
+func TestConsumerNameUsesHostnameWhenPodNameUnset(t *testing.T) {
+	t.Setenv("POD_NAME", "")
+	t.Setenv("HOSTNAME", "container-host")
+
+	if got := ConsumerName("fallback-consumer"); got != "container-host" {
+		t.Fatalf("expected HOSTNAME, got %q", got)
+	}
+}
+
+func TestConsumerNamePrefersPodName(t *testing.T) {
+	t.Setenv("POD_NAME", "chat-pod-abc")
+	t.Setenv("HOSTNAME", "container-host")
+
+	if got := ConsumerName("fallback-consumer"); got != "chat-pod-abc" {
+		t.Fatalf("expected POD_NAME, got %q", got)
+	}
+}

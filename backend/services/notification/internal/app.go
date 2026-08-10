@@ -45,7 +45,7 @@ func Run() error {
 
 	repo := NewRedisRepository(rdb, cfg.PresenceKeyPrefix)
 	service := NewService(repo, cfg.NotificationChannel)
-	server := NewStreamServer(rdb, service, cfg.FriendStream, cfg.FriendConsumerGroup, cfg.MessageStream, cfg.MessageConsumerGroup, cfg.Address)
+	server := NewStreamServer(rdb, service, cfg.FriendStream, cfg.FriendConsumerGroup, cfg.MessageStream, cfg.MessageConsumerGroup, config.ConsumerName("notification-consumer"))
 
 	ctx := context.Background()
 	go func() {

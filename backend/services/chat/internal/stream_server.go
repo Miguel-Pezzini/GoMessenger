@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/Miguel-Pezzini/GoMessenger/internal/platform/audit"
+	"github.com/Miguel-Pezzini/GoMessenger/internal/platform/config"
 	"github.com/Miguel-Pezzini/GoMessenger/internal/platform/observability"
 	"github.com/redis/go-redis/v9"
 )
@@ -377,10 +378,7 @@ func (s *Server) ackMessage(ctx context.Context, messageID string) error {
 }
 
 func (s *Server) consumerName() string {
-	if s.addr != "" {
-		return s.addr
-	}
-	return "chat-consumer"
+	return config.ConsumerName("chat-consumer")
 }
 
 func decodeMessage(msg redis.XMessage) (MessageRequest, error) {
