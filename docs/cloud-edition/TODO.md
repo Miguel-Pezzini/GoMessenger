@@ -140,28 +140,28 @@ Plano para evoluir o GoMessenger para uma versão **production-grade** em Kubern
 
 ### Infra Helm (subcharts ou manifests)
 
-- [ ] **Estrutura Helm chart `deploy/helm/gomessenger/`** — Chart.yaml, values.yaml, templates
+- [x] **Estrutura Helm chart `deploy/helm/gomessenger/`** — Chart.yaml, values.yaml, templates
   - **Arquivos:** `deploy/helm/gomessenger/**`
   - **Dependências:** Fase 1 Dockerfiles
   - **Esforço:** L
   - **Skills:** Helm, K8s manifests
 
-- [ ] **Deploy Redis** — Deployment + Service (+ PVC se persistência desejada)
+- [x] **Deploy Redis** — Deployment + Service (+ PVC se persistência desejada)
   - **Dependências:** chart base
   - **Esforço:** S
   - **Done:** pods conectam via `redis:6379`
 
-- [ ] **Deploy MongoDB** — decisão: 1 pod multi-db **ou** 5 Deployments (chat, user, friends, logging, media)
+- [x] **Deploy MongoDB** — decisão: 1 pod multi-db **ou** 5 Deployments (chat, user, friends, logging, media)
   - **Dependências:** chart base
   - **Esforço:** M
   - **Done:** cada serviço conecta ao URI correto
 
-- [ ] **Deploy MinIO** — Deployment + Service + bucket init Job
+- [x] **Deploy MinIO** — Deployment + Service + bucket init Job
   - **Dependências:** chart base
   - **Esforço:** M
   - **Done:** media service faz upload/download
 
-- [ ] **ConfigMaps + Secrets** — JWT, internal token, MinIO keys via Secret; URLs via ConfigMap
+- [x] **ConfigMaps + Secrets** — JWT, internal token, MinIO keys via Secret; URLs via ConfigMap
   - **Arquivos:** `values.yaml`, templates `secret.yaml`, `configmap.yaml`
   - **Dependências:** infra
   - **Esforço:** M
@@ -169,68 +169,68 @@ Plano para evoluir o GoMessenger para uma versão **production-grade** em Kubern
 
 ### App deployments
 
-- [ ] **Deployment + Service para cada microserviço** (9 serviços)
+- [x] **Deployment + Service para cada microserviço** (9 serviços)
   - **Arquivos:** `templates/deployment-auth.yaml`, etc.
   - **Dependências:** infra + imagens
   - **Esforço:** L
   - **Done:** todos os pods `Ready`; `readyz` passa
 
-- [ ] **Gateway Ingress ou NodePort** — expor `:8080` para host
+- [x] **Gateway Ingress ou NodePort** — expor `:8080` para host
   - **Arquivos:** `templates/ingress.yaml` ou `nodeport-gateway.yaml`
   - **Dependências:** gateway deployment
   - **Esforço:** S
   - **Done:** `curl http://localhost:<port>/healthz` OK
 
-- [ ] **Frontend Deployment** — nginx servindo build estático
+- [x] **Frontend Deployment** — nginx servindo build estático
   - **Dependências:** frontend Dockerfile
   - **Esforço:** S
 
 ### Probes
 
-- [ ] **Liveness: `GET /healthz`** em todos os Deployments
+- [x] **Liveness: `GET /healthz`** em todos os Deployments
   - **Arquivos:** templates deployments
   - **Dependências:** deployments
   - **Esforço:** S
   - **Done:** probe configurada; pod unhealthy reinicia
 
-- [ ] **Readiness: `GET /readyz`** — já implementado com checks de Redis/Mongo/upstream
+- [x] **Readiness: `GET /readyz`** — já implementado com checks de Redis/Mongo/upstream
   - **Arquivos:** templates deployments
   - **Dependências:** deployments
   - **Esforço:** S
   - **Done:** pod não recebe tráfego até deps OK
 
-- [ ] **Startup probe para serviços com init lento** (media + MinIO, chat consumer group)
+- [x] **Startup probe para serviços com init lento** (media + MinIO, chat consumer group)
   - **Dependências:** deployments
   - **Esforço:** S
 
 ### HPA
 
-- [ ] **Instalar metrics-server no kind** — `kubectl apply` manifest oficial
+- [x] **Instalar metrics-server no kind** — `kubectl apply` manifest oficial
   - **Arquivos:** `deploy/kind/metrics-server.yaml`
   - **Esforço:** S
 
-- [ ] **HPA para gateway** — CPU target 70%, min 2, max 5
+- [x] **HPA para gateway** — CPU target 70%, min 2, max 5
   - **Arquivos:** `templates/hpa-gateway.yaml`
   - **Dependências:** metrics-server
   - **Esforço:** S
   - **Skills:** HPA, resource limits
 
-- [ ] **HPA para websocket** — CPU + opcional custom metric `gomessenger_websocket_active_connections`
+- [x] **HPA para websocket** — CPU + opcional custom metric `gomessenger_websocket_active_connections`
   - **Arquivos:** `templates/hpa-websocket.yaml`
   - **Dependências:** metrics-server, Prometheus adapter (opcional)
   - **Esforço:** M
   - **Done:** Milestone M2 parcial — escala sob carga WS
 
-- [ ] **Resource requests/limits** em todos os pods — necessário para HPA
+- [x] **Resource requests/limits** em todos os pods — necessário para HPA
   - **Esforço:** M
   - **Done:** `kubectl describe hpa` mostra métricas
 
-- [ ] **Decidir HPA para chat** — escalar consumers exige consumer names únicos (Fase 1)
+- [x] **Decidir HPA para chat** — escalar consumers exige consumer names únicos (Fase 1)
   - **Esforço:** M
 
 ### Milestone M1
 
-- [ ] **Documentar `helm install` one-liner** em `deploy/README.md`
+- [x] **Documentar `helm install` one-liner** em `deploy/README.md`
   - **Done:** `kind create cluster` + `helm install` → sistema operacional
 
 ---

@@ -57,4 +57,4 @@ else
 fi
 
 echo "kind cluster 'gomessenger' is ready."
-echo "Helm install (Fase 2): helm install gomessenger ./deploy/helm/gomessenger"
+echo "Next: ./deploy/scripts/helm-install.sh"

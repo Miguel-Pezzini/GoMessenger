@@ -1,0 +1,27 @@
+GoMessenger has been deployed.
+
+1. Wait for all pods to become Ready:
+
+   kubectl get pods -w
+
+2. Gateway health check (kind maps NodePort 30080 → localhost:{{ .Values.external.gatewayHostPort }}):
+
+   curl http://localhost:{{ .Values.external.gatewayHostPort }}/healthz
+
+3. Frontend UI (kind maps NodePort {{ .Values.frontend.service.nodePort }} → localhost:{{ .Values.external.frontendHostPort }}):
+
+   open http://localhost:{{ .Values.external.frontendHostPort }}
+
+4. HPA status (requires metrics-server):
+
+   kubectl get hpa
+
+5. Useful commands:
+
+   helm status {{ .Release.Name }}
+   kubectl logs deploy/gateway -f
+   kubectl describe hpa gateway
+
+For load tests and HPA scaling, install metrics-server first:
+
+   kubectl apply -f deploy/kind/metrics-server.yaml

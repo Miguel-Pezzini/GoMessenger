@@ -1,0 +1,232 @@
+# Default values for gomessenger (local kind cluster).
+# Override secrets in values-local.yaml or --set for non-dev use.
+
+global:
+  imageRegistry: ""
+  imageTag: local
+  imagePullPolicy: IfNotPresent
+
+# Browser-facing URLs (kind extraPortMappings on the control-plane node).
+external:
+  gatewayHostPort: 8080
+  frontendHostPort: 30517
+  # Gateway CORS accepts a single origin (the frontend URL).
+  gatewayAllowedOrigin: "http://localhost:30517"
+  websocketAllowedOrigins: "http://localhost:30517"
+  loggingAllowedOrigins: "http://localhost:30517"
+
+secrets:
+  jwtSecret: "replace-with-a-strong-secret"
+  jwtSecretPrevious: ""
+  internalServiceToken: "dev-internal-token"
+  minioAccessKey: "minioadmin"
+  minioSecretKey: "minioadmin"
+
+redis:
+  enabled: true
+  image: redis:7-alpine
+  persistence:
+    enabled: false
+    size: 1Gi
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+mongodb:
+  enabled: true
+  image: mongo:7
+  # Single MongoDB pod with multiple databases (simpler ops for local Cloud Edition).
+  uri: mongodb://mongo:27017
+  persistence:
+    enabled: true
+    size: 5Gi
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+minio:
+  enabled: true
+  image: minio/minio:latest
+  bucket: gomessenger-attachments
+  persistence:
+    enabled: true
+    size: 5Gi
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+frontend:
+  enabled: true
+  image: gomessenger/frontend
+  replicas: 1
+  service:
+    type: NodePort
+    port: 80
+    nodePort: 30517
+  resources:
+    requests:
+      cpu: 25m
+      memory: 32Mi
+    limits:
+      cpu: 100m
+      memory: 64Mi
+
+# Default resource profile for microservices (required for HPA).
+defaultResources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 300m
+    memory: 256Mi
+
+microservices:
+  auth:
+    image: gomessenger/auth
+    port: 50051
+    replicas: 1
+    startupProbe: false
+    hpa:
+      enabled: false
+
+  friends:
+    image: gomessenger/friends
+    port: 50052
+    replicas: 1
+    startupProbe: false
+    dependsOn:
+      - auth
+    hpa:
+      enabled: false
+
+  websocket:
+    image: gomessenger/websocket
+    port: 8081
+    replicas: 2
+    startupProbe: false
+    dependsOn:
+      - media
+    hpa:
+      enabled: true
+      minReplicas: 2
+      maxReplicas: 5
+      targetCPUUtilizationPercentage: 70
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+  chat:
+    image: gomessenger/chat
+    port: 8082
+    replicas: 1
+    startupProbe: true
+    dependsOn:
+      - media
+    hpa:
+      enabled: true
+      minReplicas: 1
+      maxReplicas: 3
+      targetCPUUtilizationPercentage: 70
+
+  presence:
+    image: gomessenger/presence
+    port: 8083
+    replicas: 1
+    startupProbe: false
+    hpa:
+      enabled: false
+
+  logging:
+    image: gomessenger/logging
+    port: 8084
+    replicas: 1
+    startupProbe: false
+    hpa:
+      enabled: false
+
+  notification:
+    image: gomessenger/notification
+    port: 8085
+    replicas: 1
+    startupProbe: false
+    hpa:
+      enabled: false
+
+  media:
+    image: gomessenger/media
+    port: 8086
+    replicas: 1
+    startupProbe: true
+    hpa:
+      enabled: false
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+  gateway:
+    image: gomessenger/gateway
+    port: 8080
+    replicas: 2
+    startupProbe: false
+    service:
+      type: NodePort
+      nodePort: 30080
+    dependsOn:
+      - auth
+      - friends
+      - websocket
+      - chat
+      - presence
+      - logging
+      - media
+    hpa:
+      enabled: true
+      minReplicas: 2
+      maxReplicas: 5
+      targetCPUUtilizationPercentage: 70
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+probes:
+  liveness:
+    path: /healthz
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 3
+    failureThreshold: 3
+  readiness:
+    path: /readyz
+    initialDelaySeconds: 5
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 3
+  startup:
+    path: /readyz
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 30

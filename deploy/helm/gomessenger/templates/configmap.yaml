@@ -1,0 +1,76 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "gomessenger.fullname" . }}-config
+  labels:
+    {{- include "gomessenger.labels" . | nindent 4 }}
+data:
+  # Gateway
+  GATEWAY_ADDR: ":8080"
+  GATEWAY_ALLOWED_ORIGIN: {{ .Values.external.gatewayAllowedOrigin | quote }}
+
+  # Internal service discovery
+  AUTH_UPSTREAM_URL: "http://auth:50051"
+  FRIENDS_UPSTREAM_URL: "http://friends:50052"
+  WEBSOCKET_UPSTREAM_URL: "http://websocket:8081"
+  CHAT_UPSTREAM_URL: "http://chat:8082"
+  MEDIA_UPSTREAM_URL: "http://media:8086"
+  MEDIA_INTERNAL_URL: "http://media:8086"
+  PRESENCE_UPSTREAM_URL: "http://presence:8083"
+  LOGGING_UPSTREAM_URL: "http://logging:8084"
+  NOTIFICATION_ADDR: ":8085"
+
+  # Auth
+  AUTH_ADDR: ":50051"
+  AUTH_MONGO_URI: {{ .Values.mongodb.uri | quote }}
+  AUTH_MONGO_DB: "userdb"
+  JWT_EXPIRY: "24h"
+
+  # Friends
+  FRIENDS_ADDR: ":50052"
+  FRIENDS_MONGO_URI: {{ .Values.mongodb.uri | quote }}
+  FRIENDS_MONGO_DB: "friends_db"
+
+  # Logging
+  LOGGING_ADDR: ":8084"
+  LOGGING_MONGO_URI: {{ .Values.mongodb.uri | quote }}
+  LOGGING_MONGO_DB: "logging_db"
+
+  # Chat
+  CHAT_ADDR: ":8082"
+  CHAT_MONGO_URI: {{ .Values.mongodb.uri | quote }}
+  CHAT_MONGO_DB: "chatdb"
+  PRESENCE_ADDR: ":8083"
+
+  # Media
+  MEDIA_ADDR: ":8086"
+  MEDIA_MONGO_URI: {{ .Values.mongodb.uri | quote }}
+  MEDIA_MONGO_DB: "media_db"
+  MEDIA_STORAGE_ENDPOINT: "http://minio:9000"
+  MEDIA_STORAGE_REGION: "us-east-1"
+  MEDIA_STORAGE_BUCKET: {{ .Values.minio.bucket | quote }}
+  MEDIA_UPLOAD_TTL: "1h"
+  MEDIA_CLEANUP_INTERVAL: "10m"
+
+  # Redis
+  REDIS_ADDR: "redis:6379"
+  REDIS_STREAM_CHAT: "chat.message.created"
+  REDIS_STREAM_AUDIT_LOGS: "audit.logs"
+  REDIS_STREAM_NOTIFICATION_FRIEND_REQUESTS: "notification.friend_request.created"
+  REDIS_STREAM_NOTIFICATION_MESSAGES: "notification.message.created"
+  REDIS_CHANNEL_CHAT: "chat.message.persisted"
+  REDIS_CHANNEL_CHAT_EVENTS: "chat.events"
+  REDIS_CHANNEL_FRIEND_EVENTS: "friend.events"
+  REDIS_CHANNEL_NOTIFICATIONS: "notifications"
+  REDIS_CHANNEL_PRESENCE_EVENTS: "presence.lifecycle"
+  REDIS_CHANNEL_PRESENCE: "presence.updated"
+  REDIS_KEY_PREFIX_PRESENCE: "presence:user:"
+  NOTIFICATION_FRIEND_CONSUMER_GROUP: "notification-friend-service"
+  NOTIFICATION_MESSAGE_CONSUMER_GROUP: "notification-message-service"
+
+  # WebSocket / logging CORS
+  WEBSOCKET_ALLOWED_ORIGINS: {{ .Values.external.websocketAllowedOrigins | quote }}
+  LOGGING_ALLOWED_ORIGINS: {{ .Values.external.loggingAllowedOrigins | quote }}
+
+  # Observability
+  OBSERVABILITY_PPROF_ENABLED: "true"

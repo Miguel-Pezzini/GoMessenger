@@ -1,0 +1,98 @@
+{{- range $name, $svc := .Values.microservices }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "gomessenger.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: {{ $name }}
+spec:
+  type: {{ default "ClusterIP" ($svc.service).type }}
+  ports:
+    - name: http
+      port: {{ $svc.port }}
+      targetPort: http
+      {{- if and (eq (default "ClusterIP" ($svc.service).type) "NodePort") ($svc.service).nodePort }}
+      nodePort: {{ $svc.service.nodePort }}
+      {{- end }}
+  selector:
+    app.kubernetes.io/component: {{ $name }}
+    {{- include "gomessenger.selectorLabels" $ | nindent 4 }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "gomessenger.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: {{ $name }}
+spec:
+  replicas: {{ $svc.replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: {{ $name }}
+      {{- include "gomessenger.selectorLabels" $ | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: {{ $name }}
+        {{- include "gomessenger.selectorLabels" $ | nindent 8 }}
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: {{ $svc.port | quote }}
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+        - name: {{ $name }}
+          image: {{ include "gomessenger.image" (dict "svc" $svc "global" $.Values.global) }}
+          imagePullPolicy: {{ $.Values.global.imagePullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ $svc.port }}
+          envFrom:
+            - configMapRef:
+                name: {{ include "gomessenger.fullname" $ }}-config
+            - secretRef:
+                name: {{ include "gomessenger.fullname" $ }}-secrets
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: HOSTNAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          livenessProbe:
+            httpGet:
+              path: {{ $.Values.probes.liveness.path }}
+              port: http
+            initialDelaySeconds: {{ $.Values.probes.liveness.initialDelaySeconds }}
+            periodSeconds: {{ $.Values.probes.liveness.periodSeconds }}
+            timeoutSeconds: {{ $.Values.probes.liveness.timeoutSeconds }}
+            failureThreshold: {{ $.Values.probes.liveness.failureThreshold }}
+          readinessProbe:
+            httpGet:
+              path: {{ $.Values.probes.readiness.path }}
+              port: http
+            initialDelaySeconds: {{ $.Values.probes.readiness.initialDelaySeconds }}
+            periodSeconds: {{ $.Values.probes.readiness.periodSeconds }}
+            timeoutSeconds: {{ $.Values.probes.readiness.timeoutSeconds }}
+            failureThreshold: {{ $.Values.probes.readiness.failureThreshold }}
+          {{- if $svc.startupProbe }}
+          startupProbe:
+            httpGet:
+              path: {{ $.Values.probes.startup.path }}
+              port: http
+            periodSeconds: {{ $.Values.probes.startup.periodSeconds }}
+            timeoutSeconds: {{ $.Values.probes.startup.timeoutSeconds }}
+            failureThreshold: {{ $.Values.probes.startup.failureThreshold }}
+          {{- end }}
+          resources:
+            {{- if $svc.resources }}
+            {{- toYaml $svc.resources | nindent 12 }}
+            {{- else }}
+            {{- toYaml $.Values.defaultResources | nindent 12 }}
+            {{- end }}
+{{- end }}
