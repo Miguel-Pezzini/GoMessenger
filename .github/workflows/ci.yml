@@ -51,9 +51,15 @@ jobs:
             backend/go.sum
             backend/tests/integration/go.sum
 
+      - name: Download Go modules
+        run: |
+          go mod download
+          (cd tests/integration && go mod download)
+
       - name: Run integration tests
         env:
           GO_TEST_UI: plain
+          GATEWAY_WAIT_SECONDS: "120"
         run: ./scripts/test_integration.sh
 
   frontend:
