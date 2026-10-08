@@ -46,7 +46,8 @@ services:
       - mongo_media_data:/data/db
 
   minio:
-    image: minio/minio:latest
+    # minio/minio was removed from Docker Hub; pgsty/silo is a pullable MinIO fork.
+    image: pgsty/silo:RELEASE.2026-09-16T00-00-00Z
     container_name: minio
     command: server /data --console-address ":9001"
     environment:

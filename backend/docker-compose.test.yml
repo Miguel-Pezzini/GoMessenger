@@ -36,7 +36,8 @@ services:
       - "27032:27017"
 
   minio-test:
-    image: minio/minio:latest
+    # minio/minio was removed from Docker Hub; pgsty/silo is a pullable MinIO fork.
+    image: pgsty/silo:RELEASE.2026-09-16T00-00-00Z
     container_name: minio_test
     command: server /data --console-address ":9001"
     environment:

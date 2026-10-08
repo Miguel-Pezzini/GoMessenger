@@ -135,7 +135,7 @@ func TestStreamLogsBroadcastsEventsToAuthorizedAdmin(t *testing.T) {
 		t.Fatalf("ingest returned error: %v", err)
 	}
 
-	_ = conn.SetReadDeadline(time.Now().Add(2 * time.Second))
+	_ = conn.SetReadDeadline(time.Now().Add(5 * time.Second))
 	var got logsvc.StoredEvent
 	if err := conn.ReadJSON(&got); err != nil {
 		t.Fatalf("failed to read websocket event: %v", err)

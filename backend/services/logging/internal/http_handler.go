@@ -44,6 +44,11 @@ func (h *Handler) ListLogs(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) StreamLogs(w http.ResponseWriter, r *http.Request) {
+	// Subscribe before upgrading so clients that dial successfully are already
+	// registered for broadcasts (Dial returns only after Upgrade completes).
+	ch, unsubscribe := h.service.Subscribe()
+	defer unsubscribe()
+
 	upgrader := websocket.Upgrader{
 		ReadBufferSize:  1024,
 		WriteBufferSize: 1024,
@@ -54,9 +59,6 @@ func (h *Handler) StreamLogs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer conn.Close()
-
-	ch, unsubscribe := h.service.Subscribe()
-	defer unsubscribe()
 
 	for event := range ch {
 		if err := conn.WriteJSON(event); err != nil {
